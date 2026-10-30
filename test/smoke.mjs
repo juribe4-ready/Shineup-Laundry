@@ -51,6 +51,7 @@ globalThis.fetch = async (url, opts = {}) => {
       // simular campos inexistentes: Incidents sin 'Categoria' ni 'Bag' rechaza (descomentar para probar errores)
       rows.push(r); return json(r)
     }
+    if (opts.method === 'PATCH' && !id) { for (const rec of JSON.parse(opts.body).records) Object.assign(rows.find(x => x.id === rec.id).fields, rec.fields); return json({ records: [] }) }
     if (opts.method === 'PATCH') { const r = rows.find(x => x.id === id); Object.assign(r.fields, JSON.parse(opts.body).fields); return json(r) }
     let out = rows
     const f = u.searchParams.get('filterByFormula') || ''
@@ -155,6 +156,18 @@ console.log('devolución con una maleta que se queda en la casa + inspección + 
 r = await call('POST', 'declareReturn', 'cleaner', { bagId: 'recBagA', cleaningId: 'recCL1', units: [{ unit: 1, status: 'dirty' }, { unit: 2, status: 'stay' }], short: [{ item: 'Hand Towels', qty: 1, reason: 'sin usar', kind: 'clean' }] })
 ok(r.out.cycle.state === 'Dirty' && r.out.cycle.bagsOut === 2 && r.out.cycle.bagsBack === 1 && r.out.cycle.stayedUnits === 1, 'llevadas 2 / devueltas 1 / 1 maleta en la casa')
 const cycA2 = r.out.cycle.id
+{
+  let bd = (await call('GET', 'board', 'lav')).out
+  let u = bd.bags.find(x => x.code === 'C-001').units
+  ok(u.length === 2 && u[0].where === 'transito' && u[1].where === 'casa', `maleta física 1 en tránsito, 2 en la casa → ${u.map(x => x.where)}`)
+  ok(bd.summary.unitsAtHome === 1 && bd.summary.unitsInTransit === 1, 'resumen: 1 en casas, 1 en tránsito')
+  r = await call('POST', 'receive', 'lav', { cycleId: cycA2, unit: 2 })
+  ok(r.status === 409, 'no se puede recibir una maleta que se quedó en la casa')
+  r = await call('POST', 'receive', 'lav', { cycleId: cycA2, unit: 1 })
+  bd = (await call('GET', 'board', 'lav')).out
+  u = bd.bags.find(x => x.code === 'C-001').units
+  ok(r.status === 200 && u[0].where === 'lavanderia' && u[1].where === 'casa', `recepción opcional: #1 recibida, #2 sigue en la casa → ${u.map(x => x.where)}`)
+}
 const before = db.Incidents.length
 r = await call('POST', 'inspect', 'lav', { cycleId: cycA2, counts: { 'Sheets-Q': 2, 'Sheets-K': 1, 'Bath Towels': 6, 'Hand Towels': 4 } })
 ok(r.status === 200 && r.out.explained.length > 0 && db.Incidents.length === before, 'faltantes explicados por la maleta en la casa: no se crean incidentes falsos')
@@ -172,5 +185,11 @@ console.log('KPIs y etiquetas')
 r = await call('GET', 'kpis', 'lav')
 ok(r.status === 200 && r.out.cycles === 2 , `KPIs: ${r.out.cycles} ciclos, externos ${r.out.external.cycles}`)
 r = await call('POST', 'assignCodes', 'admin', {})
-ok(r.out.plan[0].code === 'C-003' && !r.out.applied, 'asigna códigos (simulación, no escribe sin apply)')
+ok(r.out.plan.length === 1 && r.out.plan[0].code === 'M003-SIAL' && !r.out.applied, `códigos faltantes con formato nuevo (simulación): ${r.out.plan.map(p => p.code)}`)
+r = await call('POST', 'assignCodes', 'admin', { regenerate: true })
+ok(r.out.plan.length === 3 && r.out.plan.map(p => p.code).join() === 'M001-AAHI,M002-AHAH,M003-SIAL' && db['Laundry Bags'][0].fields.Codigo === 'C-001', `regenerar todos (vista previa, sin escribir): ${r.out.plan.map(p => p.code)}`)
+r = await call('POST', 'assignCodes', 'admin', { regenerate: true, apply: true })
+ok(db['Laundry Bags'].map(b => b.fields.Codigo).join() === 'M001-AAHI,M002-AHAH,M003-SIAL', 'regenerar aplicado en lote (PATCH de varios registros)')
+r = await call('POST', 'assignCodes', 'admin', {})
+ok(r.out.plan.length === 0, 'ya no faltan códigos')
 console.log('\nllamadas a Airtable:', calls.length)
