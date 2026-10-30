@@ -24,7 +24,7 @@ export interface Cycle {
 }
 
 export interface Bag {
-  id: string; code: string | null; name: string; qty: number
+  id: string; code: string | null; codeLabel: string | null; name: string; qty: number
   properties: { id: string; name: string }[]
   state: State | null; standard: Counts; lastCycleId: string | null
 }
