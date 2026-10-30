@@ -4,7 +4,7 @@ import { apiGet, apiPost } from '../lib/api'
 import { Btn, C, inputStyle, Spinner } from './ui'
 
 interface LB { id: string; code: string | null; codeLabel: string | null; codes: string[]; name: string; qty: number; properties: string[] }
-interface Plan { id: string; name: string; old: string | null; code: string; codes: string; property: string; qty: number }
+interface Plan { id: string; name: string; old: string | null; code: string; codes: string; property: string; client: string; qty: number }
 
 // Tamaños en mm (ancho × alto). Tag = 6.2 × 2.3 in (horizontal). Tarjeta = tarjeta de presentación.
 // Plantilla fija: QR a la izquierda · zona del NOMBRE (ocupa todo el espacio libre) · pie con código + maleta.
@@ -103,7 +103,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
                 {plan.regenerate ? `Vas a reemplazar el código de ${plan.rows.length} casas. Si ya imprimiste etiquetas con los códigos viejos, dejarán de funcionar.` : `Se asignarán ${plan.rows.length} códigos.`}
               </p>
               <div className="max-h-64 overflow-auto rounded-lg p-2 text-[12px]" style={{ background: C.bg, border: `1px solid ${C.border}` }}>
-                {plan.rows.map(p => <p key={p.id}><b className="font-mono">{p.codes}</b> ← {p.property || p.name}{p.old ? <span style={{ color: C.muted }}> (antes {p.old})</span> : null}{p.qty > 1 ? ` · ${p.qty} maletas` : ''}</p>)}
+                {plan.rows.map(p => <p key={p.id}><b className="font-mono">{p.codes}</b> ← {p.client ? `${p.client} · ` : ''}{p.property || p.name}{p.old ? <span style={{ color: C.muted }}> (antes {p.old})</span> : null}{p.qty > 1 ? ` · ${p.qty} maletas` : ''}</p>)}
               </div>
               <Btn color={C.green} disabled={busy} onClick={apply}>{busy ? 'Guardando…' : 'Confirmar y guardar en Airtable'}</Btn>
               <Btn ghost color={C.slate} disabled={busy} onClick={() => setPlan(null)}>Cancelar</Btn>
