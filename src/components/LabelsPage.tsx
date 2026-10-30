@@ -6,19 +6,21 @@ import { Btn, C, inputStyle, Spinner } from './ui'
 interface LB { id: string; code: string | null; name: string; qty: number; properties: string[] }
 interface Plan { id: string; name: string; old: string | null; code: string; property: string; qty: number }
 
-// Tamaños en mm (ancho × alto). Tarjeta = tamaño de tarjeta de presentación.
+// Tamaños en mm (ancho × alto). Tag = 6.2 × 2.3 in (horizontal). Tarjeta = tarjeta de presentación.
 const SIZES = {
-  card: { label: 'Tarjeta 89 × 51 mm', w: 89, h: 51, code: 14, name: 10, small: 7.5 },
-  tag: { label: 'Tag 64 × 38 mm', w: 64, h: 38, code: 10, name: 8.5, small: 6.5 },
-  mini: { label: 'Tag chico 51 × 32 mm', w: 51, h: 32, code: 8, name: 7, small: 5.5 },
+  tag: { label: 'Tag 6.2 × 2.3 in', w: 157.5, h: 58.4, name: 30, code: 17, badge: 11 },
+  card: { label: 'Tarjeta 89 × 51 mm', w: 89, h: 51, name: 16, code: 11, badge: 7.5 },
 } as const
 type SizeKey = keyof typeof SIZES
+
+// El nombre de la casa va grande; si es largo se reduce para que quepa en 2 líneas.
+const nameSize = (txt: string, base: number) => (txt.length <= 14 ? base : txt.length <= 24 ? base * 0.82 : txt.length <= 36 ? base * 0.66 : base * 0.55)
 
 export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean) => void }) {
   const [bags, setBags] = useState<LB[] | null>(null)
   const [plan, setPlan] = useState<{ rows: Plan[]; regenerate: boolean } | null>(null)
   const [qrs, setQrs] = useState<Record<string, string>>({})
-  const [size, setSize] = useState<SizeKey>('card')
+  const [size, setSize] = useState<SizeKey>('tag')
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
   const load = () => apiGet<{ bags: LB[] }>('labels').then(d => setBags(d.bags)).catch(e => onMsg(e.message, true))
@@ -53,7 +55,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const missing = bags.filter(b => !b.code).length
   const withCode = bags.length - missing
   const S = SIZES[size]
-  const pad = 2.5, qrSide = S.h - pad * 2
+  const pad = S.h > 55 ? 3.5 : 2.5, qrSide = S.h - pad * 2
 
   return (
     <div className="space-y-4">
@@ -102,10 +104,10 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
           return (
             <div key={l.code} className="qr-label" style={{ width: `${S.w}mm`, height: `${S.h}mm`, padding: `${pad}mm`, display: 'flex', alignItems: 'center', gap: '2.5mm', background: 'white', border: '0.25mm dashed #B6BEC9', borderRadius: '2mm', boxSizing: 'border-box', overflow: 'hidden' }}>
               {qrs[l.code] ? <img src={qrs[l.code]} alt={l.code} style={{ width: `${qrSide}mm`, height: `${qrSide}mm`, flexShrink: 0 }} /> : <div style={{ width: `${qrSide}mm`, height: `${qrSide}mm`, flexShrink: 0 }} />}
-              <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1mm', fontFamily: 'Inter, sans-serif' }}>
-                <div style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontWeight: 800, fontSize: `${S.code}pt`, lineHeight: 1.05, color: '#0F172A', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{l.bag.code}<span style={{ fontSize: '62%', fontWeight: 700, color: '#64748B' }}>-{l.n}</span></div>
-                <div style={{ fontWeight: 600, fontSize: `${S.name}pt`, lineHeight: 1.15, color: '#0F172A', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{house}</div>
-                <div style={{ fontSize: `${S.small}pt`, color: '#475569' }}>Maleta {l.n}{l.bag.qty > 1 ? ` de ${l.bag.qty}` : ''} · Shine<b style={{ color: '#E8A200' }}>UP</b></div>
+              <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.6mm', fontFamily: 'Inter, sans-serif' }}>
+                <div style={{ fontWeight: 800, fontSize: `${nameSize(house, S.name)}pt`, lineHeight: 1.05, color: '#0F172A', letterSpacing: '-0.02em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{house}</div>
+                <div style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontWeight: 700, fontSize: `${S.code}pt`, lineHeight: 1.05, color: '#334155', whiteSpace: 'nowrap' }}>{l.bag.code}<span style={{ color: '#64748B' }}>-{l.n}</span></div>
+                <div><span style={{ display: 'inline-block', background: '#0F172A', color: 'white', fontWeight: 700, fontSize: `${S.badge}pt`, lineHeight: 1, padding: '1.2mm 2.6mm', borderRadius: '1.5mm', letterSpacing: '0.02em' }}>MALETA {l.n}{l.bag.qty > 1 ? ` DE ${l.bag.qty}` : ''}</span></div>
               </div>
             </div>
           )
