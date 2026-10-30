@@ -89,13 +89,15 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
         )}
       </div>
 
-      {cyc && cyc.special && (
+      {cyc && (cyc.condition !== 'Normal' && cyc.condition !== 'Bueno' || cyc.tags.length > 0 || !!cyc.cleanerNote ? (
         <div className="rounded-xl p-3" style={{ background: '#FEF3C7', border: '1.5px solid #FCD34D' }}>
-          <p className="text-[12px] font-semibold mb-1" style={{ color: '#92400E' }}>⚠ TRATAMIENTO ESPECIAL · condición {cyc.condition}</p>
+          <p className="text-[12px] font-semibold mb-1" style={{ color: '#92400E' }}>⚠ Condición: {cyc.condition}{cyc.special ? ' · tratamiento especial' : ''}</p>
           {cyc.tags.length > 0 && <p className="text-[12px] font-semibold" style={{ color: '#92400E' }}>{cyc.tags.join(' · ')}</p>}
           {cyc.cleanerNote && <p className="text-[12px] mt-1" style={{ color: '#92400E' }}>“{cyc.cleanerNote}” — {cyc.declaredBy}</p>}
         </div>
-      )}
+      ) : (
+        <p className="text-[12px] px-1" style={{ color: C.slate }}>Condición: <b style={{ color: C.ink }}>{cyc.condition}</b>{cyc.special ? ' · marcada como especial' : ''}</p>
+      ))}
 
       {cyc && cyc.short.length > 0 && (
         <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
@@ -175,7 +177,7 @@ function InspectForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose
         <Btn color={C.green} disabled={busy || diffs.length > 0 || hasFlags} onClick={() => send(true)}>✅ Todo conforme (coincide con lo esperado)</Btn>
         <Btn color={C.violet} disabled={busy || (diffs.length === 0 && !hasFlags) || needPhoto} onClick={() => send(false)}>Guardar corrección ({diffs.length + Object.values(damaged).filter(n => n > 0).length + Object.values(stained).filter(n => n > 0).length} diferencias)</Btn>
       </>}>
-      {cyc.special && (
+      {cyc.special && (cyc.condition === 'Malo' || cyc.tags.length > 0 || !!cyc.cleanerNote) && (
         <div className="rounded-xl p-3" style={{ background: '#FEF3C7', border: '1.5px solid #FCD34D' }}>
           <p className="text-[12px] font-semibold" style={{ color: '#92400E' }}>⚠ El cleaner reportó condición {cyc.condition}: {cyc.tags.join(', ') || 'ver nota'}</p>
           {cyc.cleanerNote && <p className="text-[12px] mt-1" style={{ color: '#92400E' }}>“{cyc.cleanerNote}”</p>}
@@ -243,7 +245,7 @@ function WashStartForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClo
   return (
     <Sheet title={`Iniciar lavado · ${bag.code || bag.name}`} onClose={onClose}
       footer={<Btn color={C.blue} disabled={busy} onClick={go}><Droplets className="w-4 h-4" /> Iniciar lavado ahora</Btn>}>
-      {cyc.special && <div className="rounded-xl p-3 text-[12px] font-medium" style={{ background: '#FEF3C7', color: '#92400E' }}>⚠ Tratamiento especial: {cyc.tags.join(', ') || cyc.condition}</div>}
+      {cyc.special && (cyc.condition === 'Malo' || cyc.tags.length > 0 || !!cyc.cleanerNote) && <div className="rounded-xl p-3 text-[12px] font-medium" style={{ background: '#FEF3C7', color: '#92400E' }}>⚠ Tratamiento especial: {cyc.tags.join(', ') || cyc.condition}</div>}
       <Field label="¿Dónde se lava?">
         <div className="grid grid-cols-2 gap-2">
           {(['Propia', 'Externa'] as const).map(p => (

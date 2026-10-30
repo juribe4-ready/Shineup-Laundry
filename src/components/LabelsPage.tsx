@@ -109,7 +109,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
       <div className="no-print space-y-3">
         <div className="rounded-xl p-4 space-y-2" style={{ background: 'white', border: `1px solid ${C.border}` }}>
           <p className="text-[14px] font-semibold" style={{ color: C.ink }}>Códigos</p>
-          <p className="text-[12px]" style={{ color: C.slate }}>{withCode} casas con código · {missing} sin código · formato <b>M-AH-GL-1</b> (M + 2 letras del cliente + 2 de la propiedad + nº de maleta: la 1.ª es -1, la 2.ª es -2).</p>
+          <p className="text-[12px]" style={{ color: C.slate }}>{withCode} casas con código · {missing} sin código · formato <b>M-AH-GL-1</b> (M + 2 letras del cliente + 2 de la propiedad + nº de maleta: la 1.ª es -1, la 2.ª es -2). Cada casa empieza en -1; si dos casas coinciden en letras se distinguen con inicial + último carácter del nombre (Indianola 1 → <b>I1</b>, Indianola 2 → <b>I2</b>).</p>
           {!plan && (
             <div className="space-y-2">
               {missing > 0 && <Btn color={C.amber} disabled={busy} onClick={() => preview(false)}>Asignar a las {missing} que faltan (ver propuesta)</Btn>}
