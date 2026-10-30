@@ -3,7 +3,7 @@ import QRCode from 'qrcode'
 import { apiGet, apiPost } from '../lib/api'
 import { Btn, C, inputStyle, Spinner } from './ui'
 
-interface LB { id: string; code: string | null; codeLabel: string | null; codes: string[]; name: string; qty: number; properties: string[] }
+interface LB { id: string; client?: string; code: string | null; codeLabel: string | null; codes: string[]; name: string; qty: number; properties: string[] }
 interface Plan { id: string; name: string; old: string | null; code: string; codes: string; property: string; client: string; qty: number }
 
 // Tamaños en mm (ancho × alto). Tag = 6.2 × 2.3 in (horizontal). Tarjeta = tarjeta de presentación.
@@ -48,6 +48,8 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const [qrs, setQrs] = useState<Record<string, string>>({})
   const [size, setSize] = useState<SizeKey>('tag')
   const [q, setQ] = useState('')
+  const [order, setOrder] = useState<'client' | 'house' | 'code'>(() => { try { return (localStorage.getItem('laundry-labels-order') as any) || 'client' } catch { return 'client' } })
+  useEffect(() => { try { localStorage.setItem('laundry-labels-order', order) } catch { /* ok */ } }, [order])
   const [busy, setBusy] = useState(false)
   // Etiquetas elegidas para imprimir (se recuerdan en este navegador)
   const [sel, setSel] = useState<Set<string>>(() => { try { return new Set<string>(JSON.parse(localStorage.getItem('laundry-labels-sel') || '[]')) } catch { return new Set<string>() } })
@@ -55,11 +57,16 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const load = () => apiGet<{ bags: LB[] }>('labels').then(d => setBags(d.bags)).catch(e => onMsg(e.message, true))
   useEffect(() => { load() }, []) // eslint-disable-line
 
+  const clientOf = (b: LB) => (b.client || (b.name.includes('_') ? b.name.split('_')[0] : '') || '').trim()
+  const cmp = (a: string, b: string) => a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' })
   const allLabels = useMemo(() => (bags || [])
     .filter(b => b.code)
-    .flatMap(b => Array.from({ length: Math.max(1, b.qty) }, (_, i) => ({ code: b.codes[i] || `${b.code}-${i + 1}`, bag: b, n: i + 1 }))), [bags])
+    .slice().sort((a, b) => order === 'code' ? cmp(a.code || '', b.code || '')
+      : order === 'house' ? (cmp(houseName(a), houseName(b)) || cmp(a.code || '', b.code || ''))
+      : (cmp(clientOf(a) || '\uffff', clientOf(b) || '\uffff') || cmp(houseName(a), houseName(b)) || cmp(a.code || '', b.code || '')))
+    .flatMap(b => Array.from({ length: Math.max(1, b.qty) }, (_, i) => ({ code: b.codes[i] || `${b.code}-${i + 1}`, bag: b, n: i + 1 }))), [bags, order]) // eslint-disable-line
   // lo que se ve en la lista de selección (según el filtro)
-  const visible = useMemo(() => allLabels.filter(l => !q.trim() || `${l.code} ${l.bag.name} ${l.bag.properties.join(' ')}`.toLowerCase().includes(q.trim().toLowerCase())), [allLabels, q])
+  const visible = useMemo(() => allLabels.filter(l => !q.trim() || `${l.code} ${clientOf(l.bag)} ${l.bag.name} ${l.bag.properties.join(' ')}`.toLowerCase().includes(q.trim().toLowerCase())), [allLabels, q])
   // lo que realmente se imprime: solo lo marcado (aunque el filtro cambie)
   const labels = useMemo(() => allLabels.filter(l => sel.has(l.code)), [allLabels, sel])
   const toggle = (code: string) => setSel(p => { const n = new Set(p); n.has(code) ? n.delete(code) : n.add(code); return n })
@@ -131,6 +138,13 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
                 style={{ background: size === k ? C.ink : 'white', color: size === k ? 'white' : C.slate, border: `1px solid ${size === k ? C.ink : C.border}` }}>{SIZES[k].label}</button>
             ))}
           </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[12px]" style={{ color: C.slate }}>Ordenar por</span>
+            {([['client', 'Cliente'], ['house', 'Casa'], ['code', 'Código']] as const).map(([k, t]) => (
+              <button key={k} onClick={() => setOrder(k)} className="px-3 py-1.5 rounded-lg text-[12px] font-medium"
+                style={{ background: order === k ? C.ink : 'white', color: order === k ? 'white' : C.slate, border: `1px solid ${order === k ? C.ink : C.border}` }}>{t}</button>
+            ))}
+          </div>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por código, cliente o casa" style={inputStyle} />
           <div className="flex flex-wrap gap-1.5">
             <button onClick={() => setMany(visible.map(l => l.code), true)} className="px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{ background: 'white', color: C.ink, border: `1px solid ${C.border}` }}>Marcar {q.trim() ? 'las que se ven' : 'todas'} ({visible.length})</button>
@@ -139,14 +153,17 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
           </div>
           <div className="rounded-lg overflow-auto" style={{ maxHeight: 320, border: `1px solid ${C.border}`, background: C.bg }}>
             {visible.length === 0 ? <p className="text-center text-[13px] py-4" style={{ color: C.muted }}>{withCode === 0 ? 'Todavía no hay códigos. Usa «Asignar» arriba y luego aquí aparecen las etiquetas.' : 'Ninguna etiqueta coincide con la búsqueda.'}</p>
-              : visible.map(l => { const on = sel.has(l.code); return (
-                <label key={l.code} className="flex items-center gap-3 px-3 py-2 cursor-pointer" style={{ borderBottom: `1px solid ${C.border}`, background: on ? 'white' : 'transparent' }}>
+              : visible.map((l, idx) => { const on = sel.has(l.code); const cl = clientOf(l.bag) || 'Sin cliente'; const head = order === 'client' && (idx === 0 || (clientOf(visible[idx - 1].bag) || 'Sin cliente') !== cl); return (
+                <div key={l.code}>
+                {head && <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wide sticky top-0" style={{ background: '#E2E8F0', color: C.slate }}>{cl}</div>}
+                <label className="flex items-center gap-3 px-3 py-2 cursor-pointer" style={{ borderBottom: `1px solid ${C.border}`, background: on ? 'white' : 'transparent' }}>
                   <input type="checkbox" checked={on} onChange={() => toggle(l.code)} style={{ width: 18, height: 18, accentColor: C.ink }} />
                   <span className="flex-1 min-w-0">
                     <span className="block text-[13px] font-semibold truncate" style={{ color: C.ink }}>{houseName(l.bag)}</span>
-                    <span className="block text-[11px] font-mono" style={{ color: C.slate }}>{l.code}{l.bag.qty > 1 ? ` · maleta ${l.n} de ${l.bag.qty}` : ''}</span>
+                    <span className="block text-[11px] font-mono" style={{ color: C.slate }}>{l.code}{l.bag.qty > 1 ? ` · maleta ${l.n} de ${l.bag.qty}` : ''}{order !== 'client' && clientOf(l.bag) ? ` · ${clientOf(l.bag)}` : ''}</span>
                   </span>
                 </label>
+                </div>
               ) })}
           </div>
           <p className="text-[12px]" style={{ color: C.slate }}><b>{labels.length}</b> etiquetas marcadas ({new Set(labels.map(l => l.bag.id)).size} casas). Solo se imprimen las marcadas. En el diálogo de impresión: escala 100 % y sin márgenes extra.</p>
