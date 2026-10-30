@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; background: #F1F5F9; color: #0F172A; }
+button { cursor: pointer; font-family: inherit; }
+input, select, textarea { font-family: inherit; }
+@keyframes spin { to { transform: rotate(360deg) } }
+.spin { animation: spin 0.8s linear infinite; }
+
+/* Etiquetas QR: al imprimir solo se ve la hoja de etiquetas */
+@media print {
+  body { background: white; }
+  .no-print { display: none !important; }
+  .print-grid { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .label-card { break-inside: avoid; border: 1px dashed #999 !important; box-shadow: none !important; }
+}
