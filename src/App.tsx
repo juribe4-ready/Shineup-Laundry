@@ -76,35 +76,35 @@ function Main() {
   const visible = tabs.filter(t => t.show)
   const current = visible.find(t => t.k === tab) || visible[0]
   const dateTxt = (() => { const t = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/New_York' }); return t.charAt(0).toUpperCase() + t.slice(1) })()
-  const SIDE = 'linear-gradient(180deg,#E9944F 0%,#DB8240 55%,#C26F32 100%)'
+  const SIDE = '#FFF4E8'
 
   return (
     <div className="min-h-screen pb-20 md:pb-0" style={{ background: C.bg }}>
       {toast.node}
 
       {/* Barra lateral (escritorio) */}
-      <aside className="hidden md:flex fixed inset-y-0 left-0 w-[232px] flex-col no-print z-30" style={{ background: SIDE }}>
+      <aside className="hidden md:flex fixed inset-y-0 left-0 w-[232px] flex-col no-print z-30" style={{ background: SIDE, borderRight: '1px solid #F3D9BF' }}>
         <div className="px-5 pt-6 pb-5">
-          <p className="text-[26px] font-extrabold tracking-tight leading-none text-white">Shine<span style={{ color: '#431407' }}>UP</span></p>
-          <p className="text-[14px] font-bold mt-1.5" style={{ color: '#431407' }}>Laundry</p>
+          <p className="text-[26px] font-extrabold tracking-tight leading-none" style={{ color: '#1C1917' }}>Shine<span style={{ color: '#EA580C' }}>UP</span></p>
+          <p className="text-[14px] font-bold mt-1.5" style={{ color: '#9A3412' }}>Laundry</p>
         </div>
         <nav className="flex-1 px-3 space-y-1">
           {visible.map(t => {
             const on = tab === t.k
             return (
               <button key={t.k} onClick={() => setTab(t.k)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-left transition-colors"
-                style={{ background: on ? 'rgba(255,255,255,0.20)' : 'transparent', color: on ? '#FFFFFF' : '#FFEDD5' }}>
+                style={{ background: on ? '#FFE0C2' : 'transparent', color: on ? '#9A3412' : '#57534E' }}>
                 {t.icon}{t.label}
               </button>
             )
           })}
         </nav>
-        <div className="px-4 py-4 flex items-center gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.18)' }}>
+        <div className="px-4 py-4 flex items-center gap-2" style={{ borderTop: '1px solid #F3D9BF' }}>
           <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-medium truncate text-white">{me.profile.full_name || me.profile.email}</p>
-            <p className="text-[10px] truncate" style={{ color: '#FED7AA' }}>{me.profile.role}</p>
+            <p className="text-[12px] font-medium truncate" style={{ color: '#1C1917' }}>{me.profile.full_name || me.profile.email}</p>
+            <p className="text-[10px] truncate" style={{ color: '#78716C' }}>{me.profile.role}</p>
           </div>
-          <button onClick={() => supabase.auth.signOut()} title="Salir" style={{ color: '#FFEDD5' }}><LogOut className="w-4 h-4" /></button>
+          <button onClick={() => supabase.auth.signOut()} title="Salir" style={{ color: '#78716C' }}><LogOut className="w-4 h-4" /></button>
         </div>
       </aside>
 
