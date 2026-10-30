@@ -76,7 +76,7 @@ function Main() {
   const visible = tabs.filter(t => t.show)
   const current = visible.find(t => t.k === tab) || visible[0]
   const dateTxt = (() => { const t = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/New_York' }); return t.charAt(0).toUpperCase() + t.slice(1) })()
-  const SIDE = 'linear-gradient(180deg,#EA580C 0%,#C2410C 55%,#9A3412 100%)'
+  const SIDE = 'linear-gradient(180deg,#E9944F 0%,#DB8240 55%,#C26F32 100%)'
 
   return (
     <div className="min-h-screen pb-20 md:pb-0" style={{ background: C.bg }}>
