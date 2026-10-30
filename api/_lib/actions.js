@@ -145,7 +145,7 @@ export async function actLabels() {
   return { bags: ctx.bags.map(b => ({ id: b.id, code: b.code, name: b.name, qty: b.qty, properties: b.properties.map(p => p.name) })) }
 }
 
-// ── códigos: M014-AHGL (M + correlativo + 2 letras del cliente + 2 de la propiedad) ──
+// ── códigos: M-AH-GL-014 (M + 2 letras del cliente + 2 de la propiedad + correlativo); cada maleta física agrega -1, -2 ──
 const initials2 = (txt) => {
   const words = String(txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Za-z]+/).filter(Boolean)
   const word = words.find(w => w.length >= 3) || words[0] || '' // salta «N», «S», «St» sueltas de direcciones
@@ -155,7 +155,7 @@ export function codeFor(bag, n) {
   const parts = String(bag.name || '').split('_')
   const client = parts[0] || bag.name
   const prop = bag.properties?.[0]?.name || parts[1] || ''
-  return `M${String(n).padStart(3, '0')}-${initials2(client)}${initials2(prop)}`
+  return `M-${initials2(client)}-${initials2(prop)}-${String(n).padStart(3, '0')}`
 }
 
 // ── escrituras (cleaner / Ops) ───────────────────────────────────────────────
