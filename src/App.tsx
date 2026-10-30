@@ -76,9 +76,12 @@ function Main() {
   return (
     <div className="min-h-screen pb-24" style={{ background: C.bg }}>
       {toast.node}
-      <header className="sticky top-0 z-30 px-4 py-3 flex items-center justify-between no-print" style={{ background: 'white', borderBottom: `1px solid ${C.border}` }}>
-        <h1 className="text-[17px] font-semibold" style={{ color: C.ink }}>ShineUp Laundry</h1>
-        <button onClick={() => supabase.auth.signOut()} style={{ color: C.slate }}><LogOut className="w-5 h-5" /></button>
+      <header className="sticky top-0 z-30 px-4 py-3 flex items-center justify-between no-print" style={{ background: 'linear-gradient(135deg, #0097A7, #00BCD4)' }}>
+        <h1 className="flex items-baseline gap-2">
+          <span className="text-[22px] font-extrabold tracking-tight text-white">Shine<span style={{ color: '#FFD700' }}>UP</span></span>
+          <span className="text-[12px] font-semibold uppercase tracking-wider text-white/80">Laundry</span>
+        </h1>
+        <button onClick={() => supabase.auth.signOut()} className="text-white/90"><LogOut className="w-5 h-5" /></button>
       </header>
       <main className="p-4 max-w-2xl mx-auto">
         {!board && tab !== 'etq' && tab !== 'kpi' && tab !== 'inc' ? <div className="flex justify-center py-10"><Spinner size={28} /></div> : (
