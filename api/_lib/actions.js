@@ -294,6 +294,18 @@ export async function actLoadShift({ profile, body }) {
         [FC.bagsOut]: merged.length, [FC.unitsSeen]: `out:${merged.join(',')}`,
         [FC.log]: logAppend(rec.fields?.[FC.log], { at, by, stage: 'Carga de turno', note: `Maletas: ${merged.join(',')}`, photos: [] }),
       })
+      // Verificación: si dos cargas de la misma casa llegaron a la vez, una pudo pisar a la otra → releer y volver a fusionar.
+      for (let i = 0; i < 3; i++) {
+        await new Promise(r => setTimeout(r, 350 + i * 300))
+        let again = null
+        try { again = await getRecord(T.cycles, rec.id) } catch { break }
+        const seen = parseUnits(again.fields?.[FC.unitsSeen]).out
+        const missing = list.filter(u => !seen.includes(u))
+        const lost = merged.filter(u => !seen.includes(u))
+        if (!missing.length && !lost.length) break
+        const m2 = [...new Set([...seen, ...merged])].sort((a, b) => a - b)
+        await updateRecord(T.cycles, rec.id, { [FC.bagsOut]: m2.length, [FC.unitsSeen]: `out:${m2.join(',')}` })
+      }
       await updateRecord(T.bags, bag.id, { [FB.state]: 'In Use' })
     } else {
       warning = `Estado "${st || 'sin estado'}": todavía no está Clean (lavandería no la ha terminado)`
@@ -563,4 +575,22 @@ export async function actBoard() {
     }
   } catch { /* sin clientes */ }
   return bd
+}
+
+// Deshacer una carga de turno equivocada: solo si el ciclo está «En uso» y nadie ha declarado devolución.
+export async function actUndoLoad({ profile, body }) {
+  const ctx = await loadBags()
+  const bag = needBag(ctx, body.bagId)
+  const rec = await currentCycleRecord(bag)
+  if (!rec) throw new HttpError(400, 'Esta maleta no tiene ciclo que deshacer')
+  const st = normState(rec.fields?.[FC.state])
+  if (st !== 'In Use') throw new HttpError(409, `No se puede deshacer: el ciclo está en "${st || 'sin estado'}" (solo aplica a «En uso»)`)
+  if (parseUnits(rec.fields?.[FC.unitsSeen]).back.length) throw new HttpError(409, 'Ya hay devoluciones declaradas; no se puede deshacer la carga')
+  const at = nowISO()
+  await updateRecord(T.cycles, rec.id, {
+    [FC.state]: 'Clean', [FC.loadedAt]: null, [FC.openedAt]: null, [FC.bagsOut]: null, [FC.unitsSeen]: '',
+    [FC.log]: logAppend(rec.fields?.[FC.log], { at, by: staffName(ctx, profile), stage: 'Carga deshecha', note: 'Se deshizo la carga de turno (vuelve a Clean)', photos: [] }),
+  })
+  await updateRecord(T.bags, bag.id, { [FB.state]: 'Clean' })
+  return { ok: true, bagId: bag.id }
 }
