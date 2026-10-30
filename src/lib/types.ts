@@ -35,6 +35,7 @@ export interface Inventory { rows: InvRow[]; totals: { par: number; home: number
 export interface UnitInfo { n: number; code: string | null; where: 'casa' | 'transito' | 'cleaner' | 'lavanderia' | 'uso'; label: string; days: number | null; level: Level }
 
 export interface BoardBag extends Bag {
+  clientName?: string
   inventory: Inventory
   units: UnitInfo[]
   cycle: Cycle | null
