@@ -82,6 +82,10 @@ export default function BoardPage({ board, onOpen }: { board: Board; onOpen: (b:
             {STATE_ORDER.map(st => stageCount[st] ? <div key={st} style={{ flex: stageCount[st], background: STATE_COLOR[st] }} /> : null)}
           </div>
           <div className="flex flex-wrap gap-1.5 mt-2">
+            <button onClick={() => setStage(null)} className="inline-flex items-center gap-1 md:gap-1.5 rounded-lg px-1.5 md:px-2 py-1 text-[10px] md:text-[12px]"
+              style={{ background: stage === null ? C.ink : 'white', border: `1px solid ${stage === null ? C.ink : C.border}` }}>
+              <b style={{ color: stage === null ? 'white' : C.ink }}>{totalUnits}</b><span className="font-bold" style={{ color: stage === null ? 'white' : C.slate }}>Todas</span>
+            </button>
             {STATE_ORDER.map(st => {
               const n = stageCount[st] || 0, on = stage === st, c = STATE_COLOR[st]
               return (
@@ -92,7 +96,7 @@ export default function BoardPage({ board, onOpen }: { board: Board; onOpen: (b:
                 </button>
               )
             })}
-            {filtered && <button onClick={() => { setStage(null); setOnlyUrgent(false); setQ('') }} className="text-[11px] underline px-1" style={{ color: C.slate }}>quitar filtros</button>}
+            {(onlyUrgent || q.trim()) && <button onClick={() => { setOnlyUrgent(false); setQ('') }} className="text-[11px] underline px-1" style={{ color: C.slate }}>quitar filtros</button>}
           </div>
           {totalUnits === 0 && <p className="text-[11px] mt-1" style={{ color: C.muted }}>Sin maletas con estado.</p>}
         </div>
@@ -109,8 +113,9 @@ export default function BoardPage({ board, onOpen }: { board: Board; onOpen: (b:
 
         {filtered && (
           <p className="text-[12px] mt-2 px-1" style={{ color: C.slate }}>
-            Mostrando <b>{rows.length}</b> de {board.bags.length} casas
-            {stage ? <> con maletas <b style={{ color: STATE_COLOR[stage] }}>{stage}</b> ({shownUnits} {shownUnits === 1 ? 'maleta' : 'maletas'})</> : null}
+            {stage
+              ? <>Mostrando <b>{shownUnits}</b> {shownUnits === 1 ? 'maleta' : 'maletas'} <b style={{ color: STATE_COLOR[stage] }}>{stage}</b> en <b>{rows.length}</b> {rows.length === 1 ? 'casa' : 'casas'}</>
+              : <>Mostrando <b>{rows.length}</b> de {board.bags.length} casas</>}
             {onlyUrgent ? <> · solo urgentes</> : null}
           </p>
         )}
@@ -122,15 +127,17 @@ export default function BoardPage({ board, onOpen }: { board: Board; onOpen: (b:
       {s.withoutCode > 0 && <p className="text-[12px] px-1" style={{ color: C.amber }}>{s.withoutCode} casas sin código ({s.withoutCodeBags} maletas físicas por etiquetar). Ve a Etiquetas.</p>}
 
       <div className="space-y-2">
-        {rows.map(b => <Row key={b.id} b={b} onOpen={onOpen} />)}
+        {rows.map(b => <Row key={b.id} b={b} onOpen={onOpen} stage={stage} />)}
         {rows.length === 0 && <p className="text-center text-[13px] py-8" style={{ color: C.muted }}>Ninguna casa coincide con los filtros.</p>}
       </div>
     </div>
   )
 }
 
-function Row({ b, onOpen }: { b: BoardBag; onOpen: (b: BoardBag) => void }) {
-  const us = unitsOf(b)
+function Row({ b, onOpen, stage }: { b: BoardBag; onOpen: (b: BoardBag) => void; stage: string | null }) {
+  const all = unitsOf(b)
+  const us = stage ? all.filter(c => c.stage === stage) : all // al filtrar: solo las maletas de esa etapa dentro de cada casa
+  const hidden = all.length - us.length
   const cl = clientName(b)
   const cap = 'text-[9px] font-bold uppercase tracking-wide mb-0.5 md:hidden'
   return (
@@ -140,7 +147,7 @@ function Row({ b, onOpen }: { b: BoardBag; onOpen: (b: BoardBag) => void }) {
         <div className="min-w-0 flex-1">
           <p className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{houseName(b)}</p>
           <p className="text-[11px] truncate" style={{ color: C.muted }}>
-            {us.length} {us.length === 1 ? 'maleta' : 'maletas'}{cl ? ` · ${cl}` : ''}
+            {all.length} {all.length === 1 ? 'maleta' : 'maletas'}{hidden > 0 ? ` (${hidden} en otra etapa)` : ''}{cl ? ` · ${cl}` : ''}
             {b.openIncidents > 0 ? <span style={{ color: C.red }}> · {b.openIncidents} incid.</span> : null}
             {b.inventory.totals.missing > 0 ? <span style={{ color: C.red }}> · Faltan {b.inventory.totals.missing}</span> : null}
           </p>

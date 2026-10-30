@@ -55,6 +55,13 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
           {bag.state === 'Dirty' && <Btn color={C.violet} onClick={() => setMode('inspect')}><ClipboardCheck className="w-4 h-4" /> Inspeccionar (abrir y contar)</Btn>}
           {bag.state === 'Inspected' && <Btn color={C.blue} onClick={() => setMode('wash')}><Droplets className="w-4 h-4" /> Iniciar lavado</Btn>}
           {bag.state === 'Washing' && <Btn color={C.green} onClick={() => setMode('finish')}><PackageCheck className="w-4 h-4" /> Terminar y marcar Clean</Btn>}
+          {bag.state === 'In Use' && cyc && !(cyc.unitsBack || []).length && (
+            <Btn ghost color={C.slate} onClick={async () => {
+              if (!window.confirm(`¿Deshacer la carga de ${bag.name}? Vuelve a Clean (todas sus maletas).`)) return
+              try { await apiPost('undoLoad', { bagId: bag.id }); onChanged('Carga deshecha ✓ (vuelve a Clean)') }
+              catch (e: any) { onError(e.message) }
+            }}>↩ Deshacer carga de turno</Btn>
+          )}
           <Btn ghost color={C.red} onClick={() => setMode('incident')}><AlertTriangle className="w-4 h-4" /> Reportar problema</Btn>
         </>
       ) : undefined}>
