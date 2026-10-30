@@ -25,7 +25,7 @@ export default function ScanPage({ bags, onFound, onMsg }: { bags: BoardBag[]; o
     <div className="space-y-3">
       <Scanner onCode={resolve} paused={busy} />
       <div className="flex gap-2">
-        <input value={manual} onChange={e => setManual(e.target.value)} placeholder="o escribe el código (C-014)" style={inputStyle} onKeyDown={e => e.key === 'Enter' && resolve(manual)} />
+        <input value={manual} onChange={e => setManual(e.target.value)} placeholder="o escribe el código (M-AH-GL-014-1)" style={inputStyle} onKeyDown={e => e.key === 'Enter' && resolve(manual)} />
         <div style={{ width: 100 }}><Btn color={C.ink} onClick={() => resolve(manual)}>Abrir</Btn></div>
       </div>
     </div>

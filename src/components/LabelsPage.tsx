@@ -7,14 +7,40 @@ interface LB { id: string; code: string | null; name: string; qty: number; prope
 interface Plan { id: string; name: string; old: string | null; code: string; property: string; qty: number }
 
 // Tamaños en mm (ancho × alto). Tag = 6.2 × 2.3 in (horizontal). Tarjeta = tarjeta de presentación.
+// Plantilla fija: QR a la izquierda · zona del NOMBRE (ocupa todo el espacio libre) · pie con código + maleta.
 const SIZES = {
-  tag: { label: 'Tag 6.2 × 2.3 in', w: 157.5, h: 58.4, name: 30, code: 17, badge: 11 },
-  card: { label: 'Tarjeta 89 × 51 mm', w: 89, h: 51, name: 16, code: 11, badge: 7.5 },
+  tag: { label: 'Tag 6.2 × 2.3 in', w: 157.5, h: 58.4, nameMax: 66, nameMin: 20, code: 19, badge: 13, footRow: true },
+  card: { label: 'Tarjeta 89 × 51 mm', w: 89, h: 51, nameMax: 34, nameMin: 11, code: 10.5, badge: 8, footRow: false },
 } as const
 type SizeKey = keyof typeof SIZES
 
-// El nombre de la casa va grande; si es largo se reduce para que quepa en 2 líneas.
-const nameSize = (txt: string, base: number) => (txt.length <= 14 ? base : txt.length <= 24 ? base * 0.82 : txt.length <= 36 ? base * 0.66 : base * 0.55)
+const PT = 0.3528 // mm por punto
+
+// Nombre de la casa: el más grande que quepa en el espacio disponible (hasta 3 líneas).
+function fitName(txt: string, availW: number, maxH: number, maxPt: number, minPt: number) {
+  const words = txt.split(/\s+/).filter(Boolean)
+  const wrapLines = (pt: number) => {
+    const cw = 0.63 * pt * PT // ancho aprox. de un carácter (negrita), conservador
+    let lines = 1, cur = 0
+    for (const w of words) {
+      const len = w.length * cw
+      if (len > availW) return 99 // una palabra sola no cabe: bajar el tamaño
+      if (cur === 0) cur = len
+      else if (cur + cw + len <= availW) cur += cw + len
+      else { lines++; cur = len }
+    }
+    return lines
+  }
+  for (let pt = maxPt; pt >= minPt; pt -= 1) {
+    const lines = wrapLines(pt)
+    if (lines <= 3 && lines * pt * 1.06 * PT <= maxH) return pt
+  }
+  return minPt
+}
+
+// Qué nombre imprimir: si «Name» en Airtable fue escrito a mano (no tiene el formato automático Cliente_Casa_Bag), se usa tal cual.
+// Si no, se usan los nombres de las propiedades (todas, separadas por « / »).
+const houseName = (b: { name: string; properties: string[] }) => (b.name && !b.name.includes('_') ? b.name : b.properties.join(' / ') || b.name)
 
 export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean) => void }) {
   const [bags, setBags] = useState<LB[] | null>(null)
@@ -55,14 +81,16 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const missing = bags.filter(b => !b.code).length
   const withCode = bags.length - missing
   const S = SIZES[size]
-  const pad = S.h > 55 ? 3.5 : 2.5, qrSide = S.h - pad * 2
+  const pad = S.h > 55 ? 3 : 2.5, gap = 3, qrSide = S.h - pad * 2
+  const textW = S.w - pad * 2 - qrSide - gap
+  const footH = S.footRow ? Math.max(S.code, S.badge) * PT * 1.5 + 3 : (S.code + S.badge) * PT * 1.45 + 4 // alto fijo del pie
 
   return (
     <div className="space-y-4">
       <div className="no-print space-y-3">
         <div className="rounded-xl p-4 space-y-2" style={{ background: 'white', border: `1px solid ${C.border}` }}>
           <p className="text-[14px] font-semibold" style={{ color: C.ink }}>Códigos</p>
-          <p className="text-[12px]" style={{ color: C.slate }}>{withCode} casas con código · {missing} sin código · formato <b>M014-AHGL</b> (M + número + 2 letras del cliente + 2 de la propiedad). Cada maleta física agrega -1, -2…</p>
+          <p className="text-[12px]" style={{ color: C.slate }}>{withCode} casas con código · {missing} sin código · formato <b>M-AH-GL-014</b> (M + 2 letras del cliente + 2 de la propiedad + correlativo). Cada maleta física agrega -1, -2…</p>
           {!plan && (
             <div className="space-y-2">
               {missing > 0 && <Btn color={C.amber} disabled={busy} onClick={() => preview(false)}>Asignar a las {missing} que faltan (ver propuesta)</Btn>}
@@ -100,14 +128,19 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
 
       <div id="print-area" style={{ display: 'flex', flexWrap: 'wrap', gap: '2mm' }}>
         {labels.map(l => {
-          const house = l.bag.properties[0] || l.bag.name
+          const house = houseName(l.bag)
+          const namePt = fitName(house, textW, S.h - pad * 2 - footH, S.nameMax, S.nameMin)
           return (
-            <div key={l.code} className="qr-label" style={{ width: `${S.w}mm`, height: `${S.h}mm`, padding: `${pad}mm`, display: 'flex', alignItems: 'center', gap: '2.5mm', background: 'white', border: '0.25mm dashed #B6BEC9', borderRadius: '2mm', boxSizing: 'border-box', overflow: 'hidden' }}>
+            <div key={l.code} className="qr-label" style={{ width: `${S.w}mm`, height: `${S.h}mm`, padding: `${pad}mm`, display: 'flex', alignItems: 'center', gap: `${gap}mm`, background: 'white', border: '0.25mm dashed #B6BEC9', borderRadius: '2mm', boxSizing: 'border-box', overflow: 'hidden' }}>
               {qrs[l.code] ? <img src={qrs[l.code]} alt={l.code} style={{ width: `${qrSide}mm`, height: `${qrSide}mm`, flexShrink: 0 }} /> : <div style={{ width: `${qrSide}mm`, height: `${qrSide}mm`, flexShrink: 0 }} />}
-              <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.6mm', fontFamily: 'Inter, sans-serif' }}>
-                <div style={{ fontWeight: 800, fontSize: `${nameSize(house, S.name)}pt`, lineHeight: 1.05, color: '#0F172A', letterSpacing: '-0.02em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{house}</div>
-                <div style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontWeight: 700, fontSize: `${S.code}pt`, lineHeight: 1.05, color: '#334155', whiteSpace: 'nowrap' }}>{l.bag.code}<span style={{ color: '#64748B' }}>-{l.n}</span></div>
-                <div><span style={{ display: 'inline-block', background: '#0F172A', color: 'white', fontWeight: 700, fontSize: `${S.badge}pt`, lineHeight: 1, padding: '1.2mm 2.6mm', borderRadius: '1.5mm', letterSpacing: '0.02em' }}>MALETA {l.n}{l.bag.qty > 1 ? ` DE ${l.bag.qty}` : ''}</span></div>
+              <div style={{ minWidth: 0, flex: 1, height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, sans-serif' }}>
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800, fontSize: `${namePt}pt`, lineHeight: 1.04, color: '#0F172A', letterSpacing: '-0.02em', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{house}</div>
+                </div>
+                <div style={{ height: `${footH}mm`, flexShrink: 0, display: 'flex', flexDirection: S.footRow ? 'row' : 'column', alignItems: S.footRow ? 'center' : 'flex-start', justifyContent: S.footRow ? 'space-between' : 'center', gap: '1.2mm', borderTop: '0.3mm solid #0F172A', paddingTop: '1mm' }}>
+                  <span style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontWeight: 700, fontSize: `${S.code}pt`, lineHeight: 1, color: '#334155', whiteSpace: 'nowrap' }}>{l.bag.code}<span style={{ color: '#64748B' }}>-{l.n}</span></span>
+                  <span style={{ display: 'inline-block', background: '#0F172A', color: 'white', fontWeight: 700, fontSize: `${S.badge}pt`, lineHeight: 1, padding: '1.4mm 3mm', borderRadius: '1.6mm', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>MALETA {l.n}{l.bag.qty > 1 ? ` DE ${l.bag.qty}` : ''}</span>
+                </div>
               </div>
             </div>
           )
