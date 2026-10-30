@@ -1,9 +1,9 @@
 import { T, FB, FC, FI, STATES, CATEGORY_LAUNDRY, INCIDENT_TYPES, INCIDENT_STAGES } from './schema.js'
-import { listAll, getRecord, createRecord, updateRecord } from './airtable.js'
+import { listAll, getRecord, createRecord, updateRecord, updateMany } from './airtable.js'
 import { HttpError, permissions } from './auth.js'
 import {
   todayET, nowISO, first, parseJSON, normState, loadConfig, loadNameMaps, detectItems, normalizeBag, resolveCode,
-  normalizeCycle, parseUnits, normalizeIncident, semaforoOf, loadOpenLaundryIncidents,
+  normalizeCycle, parseUnits, unitsText, normalizeIncident, semaforoOf, loadOpenLaundryIncidents,
 } from './model.js'
 
 const CONDITIONS = ['Bueno', 'Normal', 'Malo']
@@ -143,6 +143,19 @@ export async function actStaff() {
 export async function actLabels() {
   const ctx = await loadBags()
   return { bags: ctx.bags.map(b => ({ id: b.id, code: b.code, name: b.name, qty: b.qty, properties: b.properties.map(p => p.name) })) }
+}
+
+// ── códigos: M014-AHGL (M + correlativo + 2 letras del cliente + 2 de la propiedad) ──
+const initials2 = (txt) => {
+  const words = String(txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Za-z]+/).filter(Boolean)
+  const word = words.find(w => w.length >= 3) || words[0] || '' // salta «N», «S», «St» sueltas de direcciones
+  return (word.slice(0, 2) + 'XX').slice(0, 2).toUpperCase()
+}
+export function codeFor(bag, n) {
+  const parts = String(bag.name || '').split('_')
+  const client = parts[0] || bag.name
+  const prop = bag.properties?.[0]?.name || parts[1] || ''
+  return `M${String(n).padStart(3, '0')}-${initials2(client)}${initials2(prop)}`
 }
 
 // ── escrituras (cleaner / Ops) ───────────────────────────────────────────────
@@ -346,6 +359,7 @@ export async function actInspect({ profile, body }) {
     [FC.special]: cyc.special || hasFlags,
     [FC.log]: logAppend(rec.fields?.[FC.log], { at, by: staffName(ctx, profile), stage: 'Inspección', note: [String(body.note || '').slice(0, 1000), explained.length ? `Faltantes explicados por maleta(s) en la casa: ${explained.map(e => `${e.item} −${e.qty}`).join(', ')}` : ''].filter(Boolean).join(' | '), photos: cleanPhotos(body.photos) }),
   }
+  if (cyc.unitsBack.length) patch[FC.unitsSeen] = unitsText({ back: cyc.unitsBack, rcv: returnedUnits(cyc) }) // se asume recibido todo lo que el cleaner devolvió
   if (staffId) patch[FC.inspectedBy] = [staffId]
   const upd = await updateRecord(T.cycles, cyc.id, patch)
   await updateRecord(T.bags, bag.id, { [FB.state]: 'Inspected' })
@@ -429,13 +443,41 @@ export async function actUpdateIncident({ body }) {
 
 export async function actAssignCodes({ body }) {
   const ctx = await loadBags()
-  const nums = ctx.bags.map(b => Number(String(b.code || '').match(/(\d+)$/)?.[1])).filter(Number.isFinite)
+  const regenerate = !!body.regenerate
+  const used = new Set(ctx.bags.filter(b => b.code && !regenerate).map(b => b.code.toUpperCase()))
+  const nums = ctx.bags.filter(b => b.code && !regenerate).map(b => Number(String(b.code).match(/(\d+)/)?.[1])).filter(Number.isFinite)
   let next = (nums.length ? Math.max(...nums) : 0) + 1
-  const missing = ctx.bags.filter(b => !b.code)
-  const plan = missing.map(b => ({ id: b.id, name: b.name, code: `C-${String(next++).padStart(3, '0')}` }))
-  if (!body.apply) return { ok: true, applied: false, plan }
-  for (const p of plan) await updateRecord(T.bags, p.id, { [FB.code]: p.code })
-  return { ok: true, applied: true, plan }
+  const targets = (regenerate ? [...ctx.bags] : ctx.bags.filter(b => !b.code)).sort((a, b) => String(a.name).localeCompare(String(b.name)))
+  const plan = targets.map(b => {
+    let code = codeFor(b, next++)
+    while (used.has(code)) code = codeFor(b, next++)
+    used.add(code)
+    return { id: b.id, name: b.name, old: b.code || null, code, property: b.properties[0]?.name || '', qty: b.qty }
+  })
+  if (!body.apply) return { ok: true, applied: false, regenerate, plan }
+  await updateMany(T.bags, plan.map(p => ({ id: p.id, fields: { [FB.code]: p.code } })))
+  return { ok: true, applied: true, regenerate, plan }
+}
+
+// ── recepción en lavandería (opcional): confirma que llegó la maleta física ──
+const returnedUnits = (cyc) => cyc.unitsBack.filter(u => u.status !== 'stay').map(u => u.unit)
+export async function actReceive({ profile, body }) {
+  const ctx = await loadBags()
+  const rec = await getRecord(T.cycles, body.cycleId)
+  const cyc = normalizeCycle(rec, ctx.maps.staffMap)
+  if (cyc.state !== 'Dirty') return { ok: true, already: true, cycle: cyc }
+  const returned = returnedUnits(cyc)
+  const unit = Number(body.unit) || null
+  const target = body.all || !unit ? returned : [unit]
+  if (unit && !returned.includes(unit)) throw new HttpError(409, `La maleta #${unit} no figura como devuelta por el cleaner (¿se quedó en la casa?)`)
+  const rcv = [...new Set([...cyc.unitsRcv, ...target])]
+  const at = nowISO()
+  const patch = {
+    [FC.unitsSeen]: unitsText({ back: cyc.unitsBack, rcv }),
+    [FC.log]: logAppend(rec.fields?.[FC.log], { at, by: staffName(ctx, profile), stage: 'Recepción', note: `Recibida en lavandería: ${target.map(n => `#${n}`).join(', ')}`, photos: [] }),
+  }
+  const upd = await updateRecord(T.cycles, cyc.id, patch)
+  return { ok: true, received: target, pending: returned.filter(n => !rcv.includes(n)), cycle: normalizeCycle(upd, ctx.maps.staffMap) }
 }
 
 // resumen rápido de semáforo por Bag (lo usa Ops al mostrar una maleta)

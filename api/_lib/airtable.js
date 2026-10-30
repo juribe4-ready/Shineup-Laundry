@@ -60,3 +60,12 @@ export async function getByIds(table, ids, fields) {
   }
   return out
 }
+
+// Actualiza muchos registros (de a 10 por llamada, respetando el límite de 5 req/s de Airtable)
+export async function updateMany(table, updates) {
+  for (let i = 0; i < updates.length; i += 10) {
+    const chunk = updates.slice(i, i + 10)
+    await call(enc(table), { method: 'PATCH', body: { records: chunk.map(u => ({ id: u.id, fields: u.fields })), typecast: true } })
+    if (i + 10 < updates.length) await new Promise(r => setTimeout(r, 230))
+  }
+}

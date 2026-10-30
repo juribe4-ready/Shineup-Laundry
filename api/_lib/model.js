@@ -84,12 +84,20 @@ export function resolveCode(raw, bags) {
 }
 
 // ── Ciclos ───────────────────────────────────────────────────────────────────
-// Unidades (maletas físicas). unitsSeen guarda: «out:1,2» (carga de turno) o «1=dirty,2=stay» (devolución)
+// Unidades (maletas físicas). unitsSeen guarda: «out:1,2» (carga de turno) o «1=dirty,2=stay» (devolución),
+// y opcionalmente «;rcv:1,2» = unidades que lavandería ya recibió/confirmó.
 export function parseUnits(txt) {
-  const t = String(txt || '').trim()
-  if (t.startsWith('out:')) return { out: t.slice(4).split(',').map(Number).filter(n => n > 0), back: [] }
+  const [main, ...rest] = String(txt || '').trim().split(';')
+  const t = main.trim()
+  const rcvPart = rest.find(x => x.trim().startsWith('rcv:'))
+  const rcv = rcvPart ? rcvPart.trim().slice(4).split(',').map(Number).filter(n => n > 0) : []
+  if (t.startsWith('out:')) return { out: t.slice(4).split(',').map(Number).filter(n => n > 0), back: [], rcv }
   const back = t.split(',').map(p => p.split('=')).filter(p => p.length === 2 && Number(p[0]) > 0).map(([u, s]) => ({ unit: Number(u), status: s }))
-  return { out: [], back }
+  return { out: [], back, rcv }
+}
+export function unitsText({ out = [], back = [], rcv = [] }) {
+  const main = out.length && !back.length ? `out:${out.join(',')}` : back.map(u => `${u.unit}=${u.status}`).join(',')
+  return rcv.length ? `${main};rcv:${[...new Set(rcv)].sort((a, b) => a - b).join(',')}` : main
 }
 
 export function normalizeCycle(rec, staffMap = {}) {
@@ -113,6 +121,7 @@ export function normalizeCycle(rec, staffMap = {}) {
     unitsSeen: f[FC.unitsSeen] || '',
     unitsOut: parseUnits(f[FC.unitsSeen]).out,
     unitsBack: parseUnits(f[FC.unitsSeen]).back,
+    unitsRcv: parseUnits(f[FC.unitsSeen]).rcv,
     stayedUnits: parseUnits(f[FC.unitsSeen]).back.filter(u => u.status === 'stay').length,
     bagsOut: typeof f[FC.bagsOut] === 'number' ? f[FC.bagsOut] : null,
     bagsBack: typeof f[FC.bagsBack] === 'number' ? f[FC.bagsBack] : null,
@@ -262,6 +271,40 @@ export function inventoryOf(bag, cycle) {
   return { rows, totals, known: !!cycle }
 }
 
+// ── Dónde está cada maleta física ───────────────────────────────────────────
+// where: casa (se quedó) · transito (declarada sucia, lavandería aún no la confirma) · cleaner (cargada/sin declarar)
+//        lavanderia (recibida o limpia en lavandería) · uso (en la casa, en uso)
+export function unitsOf(bag, cycle, cfg, now = Date.now()) {
+  const days = (iso) => (iso ? Math.max(0, Math.round(((now - Date.parse(iso)) / 86400000) * 10) / 10) : null)
+  const warn = cfg?.laundryDirtyWarnDays ?? 2, max = cfg?.laundryDirtyMaxDays ?? 3
+  const lvl = (d) => (d == null ? 'ok' : d >= max ? 'red' : d >= warn ? 'amber' : 'ok')
+  const st = cycle?.state || bag.state || null
+  const out = cycle?.unitsOut || [], back = cycle?.unitsBack || [], rcv = cycle?.unitsRcv || []
+  const res = []
+  for (let n = 1; n <= (bag.qty || 1); n++) {
+    const code = bag.code ? `${bag.code}-${n}` : null
+    const b = back.find(u => u.unit === n)
+    let where = 'lavanderia', label = 'En lavandería', since = null
+    if (!cycle) { where = 'lavanderia'; label = 'En lavandería' }
+    else if (st === 'In Use') {
+      if (!out.length || out.includes(n)) { where = 'uso'; label = 'En uso (con el cleaner)'; since = cycle.loadedAt || cycle.openedAt }
+    } else if (['Dirty', 'Inspected', 'Washing'].includes(st)) {
+      if (b?.status === 'stay') { where = 'casa'; label = 'Se quedó en la casa'; since = cycle.dirtyAt }
+      else if (b) {
+        const received = st !== 'Dirty' || rcv.includes(n)
+        if (!received) { where = 'transito'; label = 'En tránsito (sin confirmar)'; since = cycle.dirtyAt }
+        else { where = 'lavanderia'; label = st === 'Washing' ? 'Lavando' : st === 'Inspected' ? 'En lavandería (inspeccionada)' : 'Recibida en lavandería'; since = null }
+      } else if (out.includes(n)) { where = 'cleaner'; label = 'Sin declarar (con el cleaner)'; since = cycle.loadedAt || cycle.dirtyAt }
+    } else if (st === 'Clean') {
+      if (b?.status === 'stay') { where = 'casa'; label = 'Se quedó en la casa'; since = cycle.dirtyAt }
+      else { where = 'lavanderia'; label = 'En lavandería (limpia)' }
+    }
+    const d = days(since)
+    res.push({ n, code, where, label, days: d, level: where === 'lavanderia' || where === 'uso' ? 'ok' : lvl(d) })
+  }
+  return res
+}
+
 export async function buildBoard() {
   const t0 = Date.now()
   const today = todayET()
@@ -304,6 +347,7 @@ export async function buildBoard() {
       alert: RANK[risk] >= RANK[dirtyLevel] ? risk : dirtyLevel,
       semaforo: semaforoOf(open, cycle), openIncidents: open.length,
       inventory: inventoryOf(b, cycle),
+      units: unitsOf(b, cycle, cfg),
     }
   })
 
@@ -322,6 +366,10 @@ export async function buildBoard() {
     dirtyOverLimit: out.filter(b => b.dirtyLevel === 'red').length,
     openIncidents: incidents.length,
     withoutCode: out.filter(b => !b.code).length,
+    unitsAtHome: out.reduce((n, b) => n + b.units.filter(u => u.where === 'casa').length, 0),
+    unitsInTransit: out.reduce((n, b) => n + b.units.filter(u => u.where === 'transito').length, 0),
+    totalBags: out.reduce((n, b) => n + (b.qty || 1), 0),
+    withoutCodeBags: out.filter(b => !b.code).reduce((n, b) => n + (b.qty || 1), 0),
     missingPieces: out.reduce((n, b) => n + (b.inventory?.totals.missing || 0), 0),
     bagsWithMissing: out.filter(b => (b.inventory?.totals.missing || 0) > 0).length,
   }
