@@ -84,10 +84,10 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const pad = S.h > 55 ? 3 : 2.5, gap = 3, qrSide = S.h - pad * 2
   const textW = S.w - pad * 2 - qrSide - gap
   const footH = S.footRow ? Math.max(S.code, S.badge) * PT * 1.5 + 3 : (S.code + S.badge) * PT * 1.45 + 4 // alto fijo del pie
-  const namePt = useMemo(() => {
+  const namePt = (() => {
     const names = Array.from(new Set(labels.map(l => houseName(l.bag))))
     return names.reduce<number>((m, n) => Math.min(m, fitName(n, textW, S.h - pad * 2 - footH, S.nameMax, S.nameMin)), S.nameMax as number)
-  }, [labels, textW, S.h, S.nameMax, S.nameMin, pad, footH])
+  })()
 
   return (
     <div className="space-y-4">
