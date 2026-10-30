@@ -2,7 +2,7 @@ import { T, FB, FC, FI, STATES, CATEGORY_LAUNDRY, INCIDENT_TYPES, INCIDENT_STAGE
 import { listAll, getRecord, createRecord, updateRecord, updateMany, getByIds } from './airtable.js'
 import { HttpError, permissions } from './auth.js'
 import {
-  todayET, nowISO, first, parseJSON, normState, loadConfig, loadNameMaps, detectItems, normalizeBag, resolveCode,
+  todayET, nowISO, first, parseJSON, buildBoard, normState, loadConfig, loadNameMaps, detectItems, normalizeBag, resolveCode,
   normalizeCycle, parseUnits, unitsText, codeParts, unitCode, normalizeIncident, semaforoOf, loadOpenLaundryIncidents,
 } from './model.js'
 
@@ -464,6 +464,38 @@ async function resolveClients(bags) {
   return (b) => (REC_ID.test(b.client || '') ? names[b.client] || null : b.client) || String(b.name || '').split('_')[0]
 }
 
+
+// Un prefijo único por casa (así cada casa empieza en -1 y el número no "corre" entre casas).
+// 1) M + 2 letras del cliente + 2 de la propiedad. 2) Si dos casas comparten prefijo, TODAS las de ese grupo usan
+// inicial + último carácter del nombre («Indianola 1» → I1, «Indianola 2» → I2, «47 Clark B» → CB). 3) Si aún choca: inicial + 1…9, luego A…Z.
+export function assignPrefixes(items, takenIn = new Set()) {
+  const alnum = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  const base = (it) => `M-${initials2(it.client)}-${initials2(it.prop)}`
+  const alt = (it) => {
+    const letters = String(it.prop || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Za-z]+/).filter(Boolean).find(w => w.length >= 3) || ''
+    const first = (letters[0] || alnum(it.prop)[0] || 'X').toUpperCase()
+    const tail = alnum(it.prop).slice(-1) || 'X'
+    return `M-${initials2(it.client)}-${first}${tail}`
+  }
+  const taken = new Set(takenIn)
+  const out = {}
+  const groups = {}
+  for (const it of items) (groups[base(it)] ||= []).push(it)
+  for (const [b0, list] of Object.entries(groups)) {
+    const clash = list.length > 1 || taken.has(b0)
+    for (const it of list) {
+      let cand = clash ? alt(it) : b0
+      if (taken.has(cand)) {
+        const stem = cand.slice(0, -1)
+        const tries = [...'123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(ch => stem + ch)
+        cand = tries.find(c => !taken.has(c)) || cand
+      }
+      taken.add(cand); out[it.id] = cand
+    }
+  }
+  return out
+}
+
 export async function actAssignCodes({ body }) {
   const ctx = await loadBags()
   const clientOf = await resolveClients(ctx.bags)
@@ -472,9 +504,13 @@ export async function actAssignCodes({ body }) {
   const nextByPrefix = {}
   if (!regenerate) for (const b of ctx.bags) { const p = codeParts(b.code); if (p) nextByPrefix[p.prefix] = Math.max(nextByPrefix[p.prefix] || 1, p.start + (b.qty || 1)) }
   const targets = (regenerate ? [...ctx.bags] : ctx.bags.filter(b => !b.code)).sort((a, b) => String(a.name).localeCompare(String(b.name)))
+  // Prefijos ya ocupados por casas que conservan su código (solo cuando no se regenera todo)
+  const taken = new Set()
+  if (!regenerate) for (const b of ctx.bags) { const p = codeParts(b.code); if (p) taken.add(p.prefix) }
+  const prefixes = assignPrefixes(targets.map(b => ({ id: b.id, client: clientOf(b), prop: b.properties?.[0]?.name || String(b.name || '').split('_')[1] || '', name: b.name })), taken)
   const plan = targets.map(b => {
     const clientName = clientOf(b)
-    const prefix = prefixFor({ ...b, client: clientName })
+    const prefix = prefixes[b.id]
     const start = nextByPrefix[prefix] || 1
     nextByPrefix[prefix] = start + (b.qty || 1)
     const code = `${prefix}-${start}`
@@ -514,3 +550,17 @@ export async function bagSemaforo(bagId, cycle) {
   return semaforoOf(open, cycle)
 }
 
+
+
+// Tablero con el nombre del cliente de cada maleta (solo lectura; si no se puede resolver queda vacío)
+export async function actBoard() {
+  const bd = await buildBoard()
+  try {
+    const clientOf = await resolveClients(bd.bags)
+    for (const b of bd.bags) {
+      const c = clientOf(b)
+      b.clientName = c && c !== b.name && !REC_ID.test(c) ? c : ''
+    }
+  } catch { /* sin clientes */ }
+  return bd
+}
