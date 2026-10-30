@@ -225,6 +225,43 @@ export async function nextCleaningByProperty(today) {
 // ── Tablero ──────────────────────────────────────────────────────────────────
 const RANK = { ok: 0, amber: 1, red: 2 }
 
+// ── Inventario por pieza: dónde está cada cosa ──────────────────────────────
+// Columnas: par (lo que debería tener la casa) · casa · maleta · lavandería · falta (se calcula, nadie lo cuenta).
+// Se deduce del ciclo más reciente; "Faltante" = par − lo que se sabe dónde está.
+export function inventoryOf(bag, cycle) {
+  const par = bag.standard || {}
+  const items = Object.keys(par)
+  if (!items.length) return { rows: [], totals: { par: 0, home: 0, bag: 0, laundry: 0, missing: 0 }, known: false }
+  const state = cycle?.state || bag.state || null
+  const sum = (kind) => { const m = {}; for (const s of cycle?.short || []) if (s.kind === kind) m[s.item] = (m[s.item] || 0) + (s.qty || 0); return m }
+  const left = sum('left'), other = sum('other'), clean = sum('clean')
+  const rows = items.map(item => {
+    const p = par[item] || 0
+    const l = Math.min(p, left[item] || 0)
+    let home = 0, inBag = 0, laundry = 0, missing = 0
+    if (!cycle || !state) { home = p; return { item, par: p, home, bag: 0, laundry: 0, missing: 0 } }
+    if (state === 'Dirty') {
+      home = l; missing = Math.min(p - l, other[item] || 0)
+      inBag = Math.max(0, p - home - missing)
+    } else if (state === 'Inspected' || state === 'Washing') {
+      const c = cycle.counted?.counts?.[item]
+      laundry = c != null ? c : Math.max(0, p - l - (other[item] || 0))
+      home = l; missing = Math.max(0, p - laundry - home)
+    } else if (state === 'Clean') {
+      const c = cycle.finalContent?.counts?.[item]
+      inBag = c != null ? c : p - l
+      home = l; missing = Math.max(0, p - inBag - home)
+    } else { // In Use: la maleta ya está en la casa
+      const c = cycle.finalContent?.counts?.[item]
+      home = (c != null ? c : p - l) + l; missing = Math.max(0, p - home)
+    }
+    void clean
+    return { item, par: p, home, bag: inBag, laundry, missing }
+  })
+  const totals = rows.reduce((t, r) => ({ par: t.par + r.par, home: t.home + r.home, bag: t.bag + r.bag, laundry: t.laundry + r.laundry, missing: t.missing + r.missing }), { par: 0, home: 0, bag: 0, laundry: 0, missing: 0 })
+  return { rows, totals, known: !!cycle }
+}
+
 export async function buildBoard() {
   const t0 = Date.now()
   const today = todayET()
@@ -266,6 +303,7 @@ export async function buildBoard() {
       ...b, state, cycle, daysDirty, dirtyLevel, nextCleaning: next, daysToNext, risk,
       alert: RANK[risk] >= RANK[dirtyLevel] ? risk : dirtyLevel,
       semaforo: semaforoOf(open, cycle), openIncidents: open.length,
+      inventory: inventoryOf(b, cycle),
     }
   })
 
@@ -284,6 +322,8 @@ export async function buildBoard() {
     dirtyOverLimit: out.filter(b => b.dirtyLevel === 'red').length,
     openIncidents: incidents.length,
     withoutCode: out.filter(b => !b.code).length,
+    missingPieces: out.reduce((n, b) => n + (b.inventory?.totals.missing || 0), 0),
+    bagsWithMissing: out.filter(b => (b.inventory?.totals.missing || 0) > 0).length,
   }
   return {
     today, config: cfg, bags: out, summary,
@@ -312,7 +352,8 @@ export async function buildKpis({ from, to }) {
   let cycleRecs = []
   try { cycleRecs = await listAll(T.cycles, { filter: `IS_AFTER({${FC.dirtyAt}}, '${dayBefore}')`, max: 4000 }) }
   catch (e) { warnings.push(`No pude leer Ciclo de Maleta: ${e.message}`) }
-  const inRange = (iso) => { const d = String(iso || '').slice(0, 10); return d >= fromD && d <= toD }
+  const etDay = (iso) => { const t = Date.parse(iso || ''); return Number.isNaN(t) ? '' : new Date(t).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }
+  const inRange = (iso) => { const d = etDay(iso); return !!d && d >= fromD && d <= toD }
   const cycles = cycleRecs.map(r => normalizeCycle(r, maps.staffMap)).filter(c => inRange(c.dirtyAt))
 
   let incRecs = []
@@ -337,7 +378,7 @@ export async function buildKpis({ from, to }) {
   for (const c of cycles) { const k = bagName[c.bagId] || '?'; (cyclesByBag[k] ||= { name: k, cycles: 0, special: 0, incidents: 0 }).cycles++; if (c.special) cyclesByBag[k].special++ }
   for (const i of incidents) { const k = i.bagName || '?'; (cyclesByBag[k] ||= { name: k, cycles: 0, special: 0, incidents: 0 }).incidents++ }
   const daily = {}
-  for (const c of cycles) if (c.readyAt) { const d = c.readyAt.slice(0, 10); daily[d] = (daily[d] || 0) + 1 }
+  for (const c of cycles) if (c.readyAt) { const d = etDay(c.readyAt); daily[d] = (daily[d] || 0) + 1 }
 
   return {
     from: fromD, to: toD,
