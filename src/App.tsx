@@ -76,9 +76,9 @@ function Main() {
   return (
     <div className="min-h-screen pb-24" style={{ background: C.bg }}>
       {toast.node}
-      <header className="sticky top-0 z-30 px-4 py-3 flex items-center justify-between no-print" style={{ background: 'linear-gradient(135deg, #0097A7, #00BCD4)' }}>
+      <header className="sticky top-0 z-30 px-4 py-3 flex items-center justify-between no-print" style={{ background: 'linear-gradient(135deg, #FB923C, #EA580C)' }}>
         <h1 className="flex items-baseline gap-2">
-          <span className="text-[22px] font-extrabold tracking-tight text-white">Shine<span style={{ color: '#FFD700' }}>UP</span></span>
+          <span className="text-[22px] font-extrabold tracking-tight text-white">Shine<span style={{ color: '#0F172A' }}>UP</span></span>
           <span className="text-[12px] font-semibold uppercase tracking-wider text-white/80">Laundry</span>
         </h1>
         <button onClick={() => supabase.auth.signOut()} className="text-white/90"><LogOut className="w-5 h-5" /></button>
