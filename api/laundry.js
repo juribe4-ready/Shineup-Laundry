@@ -1,6 +1,6 @@
 // Router único de la app de lavandería (una sola función serverless → cabe en el plan Hobby).
 // GET  /api/laundry?type=board|bag|bagsByProperty|cycle|incidents|kpis|labels|config|me
-// POST /api/laundry?type=declareReturn|markInUse|loadShift|reportBagIncident|inspect|startWash|finishWash|updateIncident|assignCodes
+// POST /api/laundry?type=declareReturn|markInUse|loadShift|reportBagIncident|inspect|receive|startWash|finishWash|updateIncident|assignCodes
 import { authenticate, can, HttpError } from './_lib/auth.js'
 import { buildBoard, buildKpis } from './_lib/model.js'
 import * as A from './_lib/actions.js'
@@ -29,6 +29,7 @@ const WRITES = {
   loadShift: A.actLoadShift,
   reportBagIncident: A.actReportBagIncident,
   inspect: A.actInspect,
+  receive: A.actReceive,
   startWash: A.actStartWash,
   finishWash: A.actFinishWash,
   updateIncident: A.actUpdateIncident,
