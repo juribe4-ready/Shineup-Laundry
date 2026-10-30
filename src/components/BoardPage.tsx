@@ -44,7 +44,8 @@ export default function BoardPage({ board, onOpen }: { board: Board; onOpen: (b:
         <Stat label="Sucias de más" value={s.dirtyOverLimit} color={s.dirtyOverLimit ? C.red : C.ink} />
         <Stat label="Incidentes" value={s.openIncidents} color={s.openIncidents ? C.amber : C.ink} />
       </div>
-      {s.withoutCode > 0 && <p className="text-[12px] px-1" style={{ color: C.amber }}>{s.withoutCode} maletas sin código QR (ve a Etiquetas).</p>}
+      <p className="text-[12px] px-1" style={{ color: C.slate }}><b>{s.totalBags}</b> maletas físicas en <b>{board.bags.length}</b> casas/juegos{s.unitsAtHome > 0 ? <> · <b>{s.unitsAtHome}</b> en casas</> : null}{s.unitsInTransit > 0 ? <> · <b>{s.unitsInTransit}</b> en tránsito</> : null}</p>
+      {s.withoutCode > 0 && <p className="text-[12px] px-1 -mt-3" style={{ color: C.amber }}>{s.withoutCode} casas sin código ({s.withoutCodeBags} maletas físicas por etiquetar). Ve a Etiquetas.</p>}
 
       <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
         {[['inicio', 'Inicio', pending], ['todas', 'Todas', board.bags.length], ...STATE_ORDER.map(st => [st, st, s.counts[st] || 0])].map(([k, label, n]) => (
@@ -100,6 +101,8 @@ function Row({ b, onOpen }: { b: BoardBag; onOpen: (b: BoardBag) => void }) {
           {b.daysDirty != null && <Pill text={`Sucia ${b.daysDirty} d`} color={LEVEL_COLOR[b.dirtyLevel]} />}
           {b.cycle?.special && <Pill text="Especial" color={C.amber} />}
           {b.openIncidents > 0 && <Pill text={`${b.openIncidents} incid.`} color={C.red} />}
+          {b.units.some(u => u.where === 'casa') && <Pill text={`${b.units.filter(u => u.where === 'casa').length} en la casa`} color={C.slate} />}
+          {b.units.some(u => u.where === 'transito') && <Pill text={`${b.units.filter(u => u.where === 'transito').length} en tránsito`} color={C.amber} />}
           {b.inventory.totals.missing > 0 && <Pill text={`Faltan ${b.inventory.totals.missing}`} color={C.red} />}
         </div>
         <p className="text-[11px] mt-1.5 truncate" style={{ color: C.muted }}>{b.properties.map(p => p.name).join(' · ')}</p>

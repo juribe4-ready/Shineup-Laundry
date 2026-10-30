@@ -1,6 +1,6 @@
 import { InventoryTable } from './InventoryTable'
 import { useEffect, useState } from 'react'
-import { Camera, AlertTriangle, Droplets, ClipboardCheck, PackageCheck } from 'lucide-react'
+import { Camera, AlertTriangle, Droplets, ClipboardCheck, PackageCheck, PackageOpen } from 'lucide-react'
 import { apiGet, apiPost } from '../lib/api'
 import type { BoardBag, Counts, Incident } from '../lib/types'
 import { Btn, C, Dot, Field, fmtDate, fmtDateTime, inputStyle, LEVEL_COLOR, Pill, PhotoPicker, SEMAFORO_COLOR, Sheet, Spinner, STATE_COLOR, Stepper } from './ui'
@@ -46,6 +46,12 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
     <Sheet title={title} onClose={onClose}
       footer={canOperate ? (
         <>
+          {bag.state === 'Dirty' && cyc && bag.units.some(u => u.where === 'transito') && (
+            <Btn ghost color={C.teal} onClick={async () => {
+              try { await apiPost('receive', unit && bag.units.find(u => u.n === unit)?.where === 'transito' ? { cycleId: cyc.id, unit } : { cycleId: cyc.id, all: true }); onChanged('Recepción confirmada ✓') }
+              catch (e: any) { onError(e.message) }
+            }}><PackageOpen className="w-4 h-4" /> {unit && bag.units.find(u => u.n === unit)?.where === 'transito' ? `Confirmar que llegó la #${unit}` : 'Confirmar que llegaron (opcional)'}</Btn>
+          )}
           {bag.state === 'Dirty' && <Btn color={C.violet} onClick={() => setMode('inspect')}><ClipboardCheck className="w-4 h-4" /> Inspeccionar (abrir y contar)</Btn>}
           {bag.state === 'Inspected' && <Btn color={C.blue} onClick={() => setMode('wash')}><Droplets className="w-4 h-4" /> Iniciar lavado</Btn>}
           {bag.state === 'Washing' && <Btn color={C.green} onClick={() => setMode('finish')}><PackageCheck className="w-4 h-4" /> Terminar y marcar Clean</Btn>}
@@ -58,6 +64,20 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
         {bag.qty > 1 && <Pill text={`${bag.qty} maletas${unit ? ` · vista #${unit}` : ''}`} color={C.slate} />}
         {bag.daysDirty != null && <Pill text={`Sucia hace ${bag.daysDirty} d`} color={LEVEL_COLOR[bag.dirtyLevel]} />}
       </div>
+
+      {bag.units.length > 0 && (
+        <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
+          <p className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: C.muted }}>Maletas físicas</p>
+          {bag.units.map(u => (
+            <div key={u.n} className="flex items-center gap-2 py-1" style={unit === u.n ? { background: '#ECFEFF', borderRadius: 8, padding: '4px 6px' } : undefined}>
+              <Dot color={u.level === 'red' ? C.red : u.level === 'amber' ? C.amber : u.where === 'casa' ? C.slate : C.green} />
+              <span className="text-[12px] font-mono font-semibold" style={{ color: C.ink }}>{u.code || `#${u.n}`}</span>
+              <span className="text-[12px] flex-1" style={{ color: C.slate }}>{u.label}</span>
+              {u.days != null && u.days > 0 && <span className="text-[11px] font-semibold" style={{ color: u.level === 'red' ? C.red : u.level === 'amber' ? C.amber : C.muted }}>{u.days} d</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
         <p className="text-[11px] font-medium uppercase tracking-wide mb-1" style={{ color: C.muted }}>Propiedades</p>

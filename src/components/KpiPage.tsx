@@ -36,7 +36,6 @@ export default function KpiPage({ onMsg }: { onMsg: (m: string, err?: boolean) =
           <SectionTitle>Incidentes ({k.incidents.total} · {k.incidents.per100 ?? '—'} por 100 ciclos)</SectionTitle>
           <List title="Por tipo" rows={k.incidents.byType} />
           <List title="Por ítem" rows={k.incidents.byItem} />
-          <List title="Por etapa" rows={k.incidents.byStage} />
           <List title="Piezas repuestas (nuevas)" rows={k.replaced} />
           <SectionTitle>Quién lava</SectionTitle>
           <Card>{k.washers.length === 0 ? <p className="text-[12px]" style={{ color: C.muted }}>Sin datos.</p> : k.washers.map(w => <Row key={w.name} a={w.name} b={`${w.cycles} ciclos · ${fmtHours(w.avgWashH)}`} />)}</Card>
@@ -56,6 +55,6 @@ const T = ({ label, v, sub }: { label: string; v: string; sub?: string }) => (
   </div>
 )
 const Row = ({ a, b }: { a: string; b: string }) => <div className="flex justify-between py-1 text-[12px]"><span className="font-semibold" style={{ color: C.ink }}>{a}</span><span style={{ color: C.slate }}>{b}</span></div>
-const List = ({ title, rows }: { title: string; rows: { name: string; n: number }[] }) => (
-  <Card><p className="text-[11px] font-medium uppercase mb-1" style={{ color: C.muted }}>{title}</p>{rows.length === 0 ? <p className="text-[12px]" style={{ color: C.muted }}>—</p> : rows.map(r => <Row key={r.name} a={r.name} b={String(r.n)} />)}</Card>
+const List = ({ title, rows }: { title: string; rows?: { name: string; n: number }[] }) => (
+  <Card><p className="text-[11px] font-medium uppercase mb-1" style={{ color: C.muted }}>{title}</p>{!rows || rows.length === 0 ? <p className="text-[12px]" style={{ color: C.muted }}>—</p> : rows.map(r => <Row key={r.name} a={r.name} b={String(r.n)} />)}</Card>
 )
