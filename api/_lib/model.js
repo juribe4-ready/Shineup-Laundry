@@ -62,6 +62,7 @@ export function normalizeBag(rec, items, propMap = {}) {
     id: rec.id,
     code: f[FB.code] || null,
     codeLabel: null,
+    client: [].concat(f[FB.client] ?? []).filter(x => typeof x === 'string' && x.trim())[0] || null,
     name: f[FB.name] || '(sin nombre)',
     qty: Number(f[FB.qty]) > 0 ? Number(f[FB.qty]) : 1,
     properties: propertyIds.map(id => ({ id, name: propMap[id] || '?' })),
@@ -77,7 +78,7 @@ export function normalizeBag(rec, items, propMap = {}) {
 // es el de la PRIMERA maleta del juego; si hay 2 maletas son -1 y -2. Si dos casas comparten letras, el número sigue
 // corrido (la segunda casa empieza en -2, -3…), así cada maleta física tiene un código único.
 // Códigos viejos (C-014) se siguen entendiendo: C-014-1, C-014-2.
-const NEW_CODE = /^(M-[A-Z]{2}-[A-Z]{2})-(\d{1,2})$/
+const NEW_CODE = /^(M-[A-Z0-9]{2}-[A-Z0-9]{2})-(\d{1,2})$/
 export function codeParts(code) {
   const m = String(code || '').toUpperCase().match(NEW_CODE)
   return m ? { prefix: m[1], start: Number(m[2]) } : null

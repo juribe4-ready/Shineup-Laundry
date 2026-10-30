@@ -24,7 +24,8 @@ export const FB = {
   property: 'Property',
   state: 'Status',                 // se reutiliza el campo Status existente (opciones = STATES, en inglés)
   code: 'Codigo',                   // NUEVO (texto, ej. C-014)
-  qty: 'Cantidad de maletas',      // NUEVO (número 1-4)
+  qty: 'Cantidad de maletas',
+  client: 'Client',                // lookup existente en Laundry Bags (solo lectura, para las letras del código)      // NUEVO (número 1-4)
   lastCycle: 'Ultimo ciclo',       // NUEVO (link a Ciclo de Maleta; se escribe un solo ciclo)
 }
 // Campos numéricos de Laundry que NO son ítems de lavandería

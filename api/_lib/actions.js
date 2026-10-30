@@ -147,14 +147,17 @@ export async function actLabels() {
 
 // ── códigos: M-AH-GL-1 (M + 2 letras del cliente + 2 de la propiedad + nº de maleta) ──
 // El número sigue corrido entre casas que comparten las mismas letras, así cada maleta física queda única.
+// 2 caracteres: las 2 primeras letras de la primera palabra con 3+ letras (salta «N», «E», «St» de las direcciones);
+// si no hay ninguna (p. ej. «387 E 16 th»), las 2 primeras letras/dígitos del texto («38»).
 const initials2 = (txt) => {
-  const words = String(txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Za-z]+/).filter(Boolean)
-  const word = words.find(w => w.length >= 3) || words[0] || '' // salta «N», «S», «St» sueltas de direcciones
-  return (word.slice(0, 2) + 'XX').slice(0, 2).toUpperCase()
+  const clean = String(txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const word = clean.split(/[^A-Za-z]+/).filter(Boolean).find(w => w.length >= 3)
+  if (word) return word.slice(0, 2).toUpperCase()
+  return (clean.replace(/[^A-Za-z0-9]/g, '').slice(0, 2) + 'XX').slice(0, 2).toUpperCase()
 }
 export function prefixFor(bag) {
   const parts = String(bag.name || '').split('_')
-  const client = parts[0] || bag.name
+  const client = bag.client || parts[0] || bag.name // el cliente sale del lookup «Client» de la tabla; si no existe, del Name
   const prop = bag.properties?.[0]?.name || parts[1] || ''
   return `M-${initials2(client)}-${initials2(prop)}`
 }
@@ -455,7 +458,7 @@ export async function actAssignCodes({ body }) {
     nextByPrefix[prefix] = start + (b.qty || 1)
     const code = `${prefix}-${start}`
     const last = start + (b.qty || 1) - 1
-    return { id: b.id, name: b.name, old: b.code || null, code, codes: b.qty > 1 ? `${prefix}-${start} … ${prefix}-${last}` : code, property: b.properties[0]?.name || '', qty: b.qty }
+    return { id: b.id, name: b.name, old: b.code || null, code, codes: b.qty > 1 ? `${prefix}-${start} … ${prefix}-${last}` : code, property: b.properties[0]?.name || '', client: b.client || String(b.name || '').split('_')[0], qty: b.qty }
   })
   if (!body.apply) return { ok: true, applied: false, regenerate, plan }
   await updateMany(T.bags, plan.map(p => ({ id: p.id, fields: { [FB.code]: p.code } })))
