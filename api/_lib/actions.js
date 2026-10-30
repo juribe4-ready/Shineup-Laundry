@@ -1,5 +1,5 @@
 import { T, FB, FC, FI, STATES, CATEGORY_LAUNDRY, INCIDENT_TYPES, INCIDENT_STAGES } from './schema.js'
-import { listAll, getRecord, createRecord, updateRecord, updateMany } from './airtable.js'
+import { listAll, getRecord, createRecord, updateRecord, updateMany, getByIds } from './airtable.js'
 import { HttpError, permissions } from './auth.js'
 import {
   todayET, nowISO, first, parseJSON, normState, loadConfig, loadNameMaps, detectItems, normalizeBag, resolveCode,
@@ -445,20 +445,38 @@ export async function actUpdateIncident({ body }) {
   return { ok: true, id: upd.id }
 }
 
+// «Client» en Laundry Bags es un lookup de un campo ligado: la API devuelve ids (recXXXX) y no nombres → se resuelven en la tabla Clients.
+const REC_ID = /^rec[A-Za-z0-9]{14}$/
+async function resolveClients(bags) {
+  const ids = [...new Set(bags.map(b => b.client).filter(c => REC_ID.test(c || '')))]
+  const names = {}
+  if (ids.length) {
+    try {
+      for (const r of await getByIds('Clients', ids)) {
+        const f = r.fields || {}
+        names[r.id] = f.Name || f['Client Name'] || f.Client || Object.values(f).find(v => typeof v === 'string' && v.trim()) || null
+      }
+    } catch { /* sin nombres: se usa el Name de la maleta */ }
+  }
+  return (b) => (REC_ID.test(b.client || '') ? names[b.client] || null : b.client) || String(b.name || '').split('_')[0]
+}
+
 export async function actAssignCodes({ body }) {
   const ctx = await loadBags()
+  const clientOf = await resolveClients(ctx.bags)
   const regenerate = !!body.regenerate
   // siguiente número libre por prefijo (reserva los rangos de las casas que conservan su código)
   const nextByPrefix = {}
   if (!regenerate) for (const b of ctx.bags) { const p = codeParts(b.code); if (p) nextByPrefix[p.prefix] = Math.max(nextByPrefix[p.prefix] || 1, p.start + (b.qty || 1)) }
   const targets = (regenerate ? [...ctx.bags] : ctx.bags.filter(b => !b.code)).sort((a, b) => String(a.name).localeCompare(String(b.name)))
   const plan = targets.map(b => {
-    const prefix = prefixFor(b)
+    const clientName = clientOf(b)
+    const prefix = prefixFor({ ...b, client: clientName })
     const start = nextByPrefix[prefix] || 1
     nextByPrefix[prefix] = start + (b.qty || 1)
     const code = `${prefix}-${start}`
     const last = start + (b.qty || 1) - 1
-    return { id: b.id, name: b.name, old: b.code || null, code, codes: b.qty > 1 ? `${prefix}-${start} … ${prefix}-${last}` : code, property: b.properties[0]?.name || '', client: b.client || String(b.name || '').split('_')[0], qty: b.qty }
+    return { id: b.id, name: b.name, old: b.code || null, code, codes: b.qty > 1 ? `${prefix}-${start} … ${prefix}-${last}` : code, property: b.properties[0]?.name || '', client: clientName, qty: b.qty }
   })
   if (!body.apply) return { ok: true, applied: false, regenerate, plan }
   await updateMany(T.bags, plan.map(p => ({ id: p.id, fields: { [FB.code]: p.code } })))
