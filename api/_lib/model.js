@@ -58,9 +58,10 @@ export function normalizeBag(rec, items, propMap = {}) {
   const standard = {}
   for (const it of items) if (typeof f[it] === 'number' && f[it] > 0) standard[it] = f[it]
   const propertyIds = Array.isArray(f[FB.property]) ? f[FB.property] : []
-  return {
+  const bag = {
     id: rec.id,
     code: f[FB.code] || null,
+    codeLabel: null,
     name: f[FB.name] || '(sin nombre)',
     qty: Number(f[FB.qty]) > 0 ? Number(f[FB.qty]) : 1,
     properties: propertyIds.map(id => ({ id, name: propMap[id] || '?' })),
@@ -68,16 +69,44 @@ export function normalizeBag(rec, items, propMap = {}) {
     standard,
     lastCycleId: first(f[FB.lastCycle]) || null,
   }
+  bag.codeLabel = codeLabel(bag)
+  return bag
+}
+
+// Códigos nuevos: M-AH-GL-1 (M + 2 letras cliente + 2 letras propiedad + nº de maleta). El código guardado en `Codigo`
+// es el de la PRIMERA maleta del juego; si hay 2 maletas son -1 y -2. Si dos casas comparten letras, el número sigue
+// corrido (la segunda casa empieza en -2, -3…), así cada maleta física tiene un código único.
+// Códigos viejos (C-014) se siguen entendiendo: C-014-1, C-014-2.
+const NEW_CODE = /^(M-[A-Z]{2}-[A-Z]{2})-(\d{1,2})$/
+export function codeParts(code) {
+  const m = String(code || '').toUpperCase().match(NEW_CODE)
+  return m ? { prefix: m[1], start: Number(m[2]) } : null
+}
+export function unitCode(bag, n) {
+  const p = codeParts(bag.code)
+  return p ? `${p.prefix}-${p.start + n - 1}` : bag.code ? `${bag.code}-${n}` : null
+}
+export function codeLabel(bag) {
+  const p = codeParts(bag.code)
+  if (!p) return bag.code || null
+  return bag.qty > 1 ? `${p.prefix}-${p.start}…${p.start + bag.qty - 1}` : bag.code
 }
 
 export function resolveCode(raw, bags) {
   const code = String(raw || '').trim().toUpperCase()
   if (!code) return null
+  const np = codeParts(code)
+  if (np) {
+    for (const b of bags) {
+      const bp = codeParts(b.code)
+      if (bp && bp.prefix === np.prefix && np.start >= bp.start && np.start < bp.start + (b.qty || 1)) return { bag: b, unit: np.start - bp.start + 1 }
+    }
+  }
   const exact = bags.find(b => b.code && b.code.toUpperCase() === code)
   if (exact) return { bag: exact, unit: null }
   const m = code.match(/^(.*)-(\d{1,2})$/)
   if (m) {
-    const b = bags.find(x => x.code && x.code.toUpperCase() === m[1])
+    const b = bags.find(x => x.code && x.code.toUpperCase() === m[1] && !codeParts(x.code))
     if (b) return { bag: b, unit: Number(m[2]) }
   }
   return null
@@ -282,7 +311,7 @@ export function unitsOf(bag, cycle, cfg, now = Date.now()) {
   const out = cycle?.unitsOut || [], back = cycle?.unitsBack || [], rcv = cycle?.unitsRcv || []
   const res = []
   for (let n = 1; n <= (bag.qty || 1); n++) {
-    const code = bag.code ? `${bag.code}-${n}` : null
+    const code = unitCode(bag, n)
     const b = back.find(u => u.unit === n)
     let where = 'lavanderia', label = 'En lavandería', since = null
     if (!cycle) { where = 'lavanderia'; label = 'En lavandería' }

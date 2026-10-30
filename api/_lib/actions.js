@@ -3,7 +3,7 @@ import { listAll, getRecord, createRecord, updateRecord, updateMany } from './ai
 import { HttpError, permissions } from './auth.js'
 import {
   todayET, nowISO, first, parseJSON, normState, loadConfig, loadNameMaps, detectItems, normalizeBag, resolveCode,
-  normalizeCycle, parseUnits, unitsText, normalizeIncident, semaforoOf, loadOpenLaundryIncidents,
+  normalizeCycle, parseUnits, unitsText, codeParts, unitCode, normalizeIncident, semaforoOf, loadOpenLaundryIncidents,
 } from './model.js'
 
 const CONDITIONS = ['Bueno', 'Normal', 'Malo']
@@ -142,20 +142,21 @@ export async function actStaff() {
 
 export async function actLabels() {
   const ctx = await loadBags()
-  return { bags: ctx.bags.map(b => ({ id: b.id, code: b.code, name: b.name, qty: b.qty, properties: b.properties.map(p => p.name) })) }
+  return { bags: ctx.bags.map(b => ({ id: b.id, code: b.code, name: b.name, qty: b.qty, properties: b.properties.map(p => p.name), codeLabel: b.codeLabel, codes: b.code ? Array.from({ length: Math.max(1, b.qty) }, (_, i) => unitCode(b, i + 1)) : [] })) }
 }
 
-// ── códigos: M-AH-GL-014 (M + 2 letras del cliente + 2 de la propiedad + correlativo); cada maleta física agrega -1, -2 ──
+// ── códigos: M-AH-GL-1 (M + 2 letras del cliente + 2 de la propiedad + nº de maleta) ──
+// El número sigue corrido entre casas que comparten las mismas letras, así cada maleta física queda única.
 const initials2 = (txt) => {
   const words = String(txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Za-z]+/).filter(Boolean)
   const word = words.find(w => w.length >= 3) || words[0] || '' // salta «N», «S», «St» sueltas de direcciones
   return (word.slice(0, 2) + 'XX').slice(0, 2).toUpperCase()
 }
-export function codeFor(bag, n) {
+export function prefixFor(bag) {
   const parts = String(bag.name || '').split('_')
   const client = parts[0] || bag.name
   const prop = bag.properties?.[0]?.name || parts[1] || ''
-  return `M-${initials2(client)}-${initials2(prop)}-${String(n).padStart(3, '0')}`
+  return `M-${initials2(client)}-${initials2(prop)}`
 }
 
 // ── escrituras (cleaner / Ops) ───────────────────────────────────────────────
@@ -444,15 +445,17 @@ export async function actUpdateIncident({ body }) {
 export async function actAssignCodes({ body }) {
   const ctx = await loadBags()
   const regenerate = !!body.regenerate
-  const used = new Set(ctx.bags.filter(b => b.code && !regenerate).map(b => b.code.toUpperCase()))
-  const nums = ctx.bags.filter(b => b.code && !regenerate).map(b => Number(String(b.code).match(/(\d+)/)?.[1])).filter(Number.isFinite)
-  let next = (nums.length ? Math.max(...nums) : 0) + 1
+  // siguiente número libre por prefijo (reserva los rangos de las casas que conservan su código)
+  const nextByPrefix = {}
+  if (!regenerate) for (const b of ctx.bags) { const p = codeParts(b.code); if (p) nextByPrefix[p.prefix] = Math.max(nextByPrefix[p.prefix] || 1, p.start + (b.qty || 1)) }
   const targets = (regenerate ? [...ctx.bags] : ctx.bags.filter(b => !b.code)).sort((a, b) => String(a.name).localeCompare(String(b.name)))
   const plan = targets.map(b => {
-    let code = codeFor(b, next++)
-    while (used.has(code)) code = codeFor(b, next++)
-    used.add(code)
-    return { id: b.id, name: b.name, old: b.code || null, code, property: b.properties[0]?.name || '', qty: b.qty }
+    const prefix = prefixFor(b)
+    const start = nextByPrefix[prefix] || 1
+    nextByPrefix[prefix] = start + (b.qty || 1)
+    const code = `${prefix}-${start}`
+    const last = start + (b.qty || 1) - 1
+    return { id: b.id, name: b.name, old: b.code || null, code, codes: b.qty > 1 ? `${prefix}-${start} … ${prefix}-${last}` : code, property: b.properties[0]?.name || '', qty: b.qty }
   })
   if (!body.apply) return { ok: true, applied: false, regenerate, plan }
   await updateMany(T.bags, plan.map(p => ({ id: p.id, fields: { [FB.code]: p.code } })))
