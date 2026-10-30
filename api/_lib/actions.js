@@ -142,7 +142,10 @@ export async function actStaff() {
 
 export async function actLabels() {
   const ctx = await loadBags()
-  return { bags: ctx.bags.map(b => ({ id: b.id, code: b.code, name: b.name, qty: b.qty, properties: b.properties.map(p => p.name), codeLabel: b.codeLabel, codes: b.code ? Array.from({ length: Math.max(1, b.qty) }, (_, i) => unitCode(b, i + 1)) : [] })) }
+  // Cliente por maleta (solo lectura; si falla se usa el prefijo de «Name»)
+  let clientOf = (b) => String(b.name || '').split('_')[0]
+  try { clientOf = await resolveClients(ctx.bags) } catch { /* sin nombres de cliente */ }
+  return { bags: ctx.bags.map(b => ({ id: b.id, client: clientOf(b) || '', code: b.code, name: b.name, qty: b.qty, properties: b.properties.map(p => p.name), codeLabel: b.codeLabel, codes: b.code ? Array.from({ length: Math.max(1, b.qty) }, (_, i) => unitCode(b, i + 1)) : [] })) }
 }
 
 // ── códigos: M-AH-GL-1 (M + 2 letras del cliente + 2 de la propiedad + nº de maleta) ──
