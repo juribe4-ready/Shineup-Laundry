@@ -12,7 +12,7 @@ export interface Cycle {
   condition: 'Bueno' | 'Normal' | 'Malo'; tags: string[]; short: ShortItem[]; sendAll: boolean
   cleanerNote: string; unitsSeen: string
   inspectedAt: string | null; inspectedBy: string | null
-  unitsOut: number[]; unitsBack: { unit: number; status: 'dirty' | 'clean' | 'stay' }[]; stayedUnits: number
+  unitsOut: number[]; unitsRcv: number[]; unitsBack: { unit: number; status: 'dirty' | 'clean' | 'stay' }[]; stayedUnits: number
   bagsOut: number | null; bagsBack: number | null
   counted: { expected: Counts; counts: Counts; damaged: Counts; stained: Counts } | null
   endorsement: string | null; special: boolean
@@ -32,8 +32,11 @@ export interface Bag {
 export interface InvRow { item: string; par: number; home: number; bag: number; laundry: number; missing: number }
 export interface Inventory { rows: InvRow[]; totals: { par: number; home: number; bag: number; laundry: number; missing: number }; known: boolean }
 
+export interface UnitInfo { n: number; code: string | null; where: 'casa' | 'transito' | 'cleaner' | 'lavanderia' | 'uso'; label: string; days: number | null; level: Level }
+
 export interface BoardBag extends Bag {
   inventory: Inventory
+  units: UnitInfo[]
   cycle: Cycle | null
   daysDirty: number | null; dirtyLevel: Level
   nextCleaning: { id: string; date: string; propertyId: string; propertyName: string } | null
@@ -48,7 +51,7 @@ export interface LaundryConfig {
 
 export interface Board {
   today: string; config: LaundryConfig; bags: BoardBag[]
-  summary: { counts: Record<string, number>; atRisk: number; atRisk48h: number; dirtyOverLimit: number; openIncidents: number; withoutCode: number; missingPieces: number; bagsWithMissing: number }
+  summary: { counts: Record<string, number>; atRisk: number; atRisk48h: number; dirtyOverLimit: number; openIncidents: number; withoutCode: number; missingPieces: number; bagsWithMissing: number; totalBags: number; withoutCodeBags: number; unitsAtHome: number; unitsInTransit: number }
   debug: { items: string[]; fromTars: string[]; bagCount: number; cyclesLoaded: number; incidentsOpen: number; upcomingProps: number; warnings: string[]; ms: number }
 }
 
@@ -74,7 +77,7 @@ export interface Kpis {
   specialPct: number | null; shortPct: number | null; rewashPct: number | null
   external: { pct: number | null; cycles: number }
   washers: { name: string; cycles: number; avgWashH: number | null }[]
-  incidents: { total: number; open: number; per100: number | null; byType: { name: string; n: number }[]; byItem: { name: string; n: number }[]; byStage: { name: string; n: number }[]; cost: number }
+  incidents: { total: number; open: number; per100: number | null; byType: { name: string; n: number }[]; byItem: { name: string; n: number }[] }
   bags: { out: number; back: number; cyclesWithGap: number }
   replaced: { name: string; n: number }[]
   worstBags: { name: string; cycles: number; special: number; incidents: number }[]
