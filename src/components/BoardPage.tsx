@@ -99,6 +99,7 @@ export default function BoardPage({ board, onOpen }: { board: Board; onOpen: (b:
 
         {/* Barra del proceso = leyenda de colores = filtro */}
         <div className="mt-2 rounded-xl p-2.5" style={{ background: 'white', border: `1px solid ${C.border}` }}>
+          <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: C.muted }}>Maletas por etapa · toca una para filtrar</p>
           <div className="flex h-2.5 rounded-full overflow-hidden gap-[2px]" style={{ background: C.border }}>
             {STATE_ORDER.map(st => stageCount[st] ? <div key={st} style={{ flex: stageCount[st], background: STATE_COLOR[st] }} /> : null)}
           </div>
@@ -131,6 +132,9 @@ export default function BoardPage({ board, onOpen }: { board: Board; onOpen: (b:
           </select>
         </div>
 
+        {stage && (
+          <p className="text-[12px] mt-2 px-1" style={{ color: C.slate }}>Mostrando <b>{all.length}</b> {all.length === 1 ? 'casa' : 'casas'} con maletas <b style={{ color: STATE_COLOR[stage] }}>{stage}</b> ({stageCount[stage] || 0} {(stageCount[stage] || 0) === 1 ? 'maleta' : 'maletas'})</p>
+        )}
         <div className={`hidden ${COLS} px-4 pt-2.5 text-[10px] font-bold uppercase tracking-wide`} style={{ color: C.muted }}>
           <span>Casa</span><span>Maletas</span><span>Próx. limpieza</span><span>Días sucia</span>
         </div>
@@ -178,7 +182,7 @@ function Row({ b, onOpen }: { b: BoardBag; onOpen: (b: BoardBag) => void }) {
         <div className="min-w-0 flex-1">
           <p className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{houseName(b)}</p>
           <p className="text-[11px] truncate" style={{ color: C.muted }}>
-            {cl}{cl && (b.openIncidents > 0 || b.inventory.totals.missing > 0) ? ' · ' : ''}
+            {chips.length} {chips.length === 1 ? 'maleta' : 'maletas'}{cl ? ` · ${cl}` : ''}{b.openIncidents > 0 || b.inventory.totals.missing > 0 ? ' · ' : ''}
             {b.openIncidents > 0 ? <span style={{ color: C.red }}>{b.openIncidents} incid. </span> : null}
             {b.inventory.totals.missing > 0 ? <span style={{ color: C.red }}>Faltan {b.inventory.totals.missing}</span> : null}
           </p>
