@@ -85,8 +85,8 @@ function Main() {
       {/* Barra lateral (escritorio) */}
       <aside className="hidden md:flex fixed inset-y-0 left-0 w-[232px] flex-col no-print z-30" style={{ background: SIDE }}>
         <div className="px-5 pt-6 pb-5">
-          <p className="text-[22px] font-extrabold tracking-tight leading-none text-white">Shine<span style={{ color: '#FEF3C7' }}>UP</span></p>
-          <p className="text-[10px] font-semibold uppercase mt-1.5" style={{ color: '#FED7AA', letterSpacing: '0.22em' }}>Laundry</p>
+          <p className="text-[26px] font-extrabold tracking-tight leading-none text-white">Shine<span style={{ color: '#431407' }}>UP</span></p>
+          <p className="text-[14px] font-bold mt-1.5" style={{ color: '#431407' }}>Laundry</p>
         </div>
         <nav className="flex-1 px-3 space-y-1">
           {visible.map(t => {
@@ -140,7 +140,7 @@ function Main() {
           <button key={t.k} onClick={() => setTab(t.k)} className="py-2.5 flex flex-col items-center gap-0.5 text-[10px] font-medium" style={{ color: tab === t.k ? C.tealDark : C.muted }}>{t.icon}{t.label}</button>
         ))}
       </nav>
-      <DebugPanel />
+      {me.permissions.admin && <DebugPanel />}
       {sel && (
         <BagSheet bag={sel.bag} items={bagItems} unit={sel.unit} canOperate={me.permissions.laundry}
           onClose={() => setSel(null)}
