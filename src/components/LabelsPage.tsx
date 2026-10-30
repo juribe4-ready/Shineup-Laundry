@@ -84,6 +84,10 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const pad = S.h > 55 ? 3 : 2.5, gap = 3, qrSide = S.h - pad * 2
   const textW = S.w - pad * 2 - qrSide - gap
   const footH = S.footRow ? Math.max(S.code, S.badge) * PT * 1.5 + 3 : (S.code + S.badge) * PT * 1.45 + 4 // alto fijo del pie
+  const namePt = useMemo(() => {
+    const names = Array.from(new Set(labels.map(l => houseName(l.bag))))
+    return names.reduce<number>((m, n) => Math.min(m, fitName(n, textW, S.h - pad * 2 - footH, S.nameMax, S.nameMin)), S.nameMax as number)
+  }, [labels, textW, S.h, S.nameMax, S.nameMin, pad, footH])
 
   return (
     <div className="space-y-4">
@@ -126,10 +130,10 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
         {labels.length === 0 && <p className="text-center text-[13px] py-4" style={{ color: C.muted }}>{withCode === 0 ? 'Todavía no hay códigos. Usa «Asignar» arriba y luego aquí aparecen las etiquetas.' : 'Ninguna etiqueta coincide con el filtro.'}</p>}
       </div>
 
+      {/* mismo tamaño de letra en todas las etiquetas: el que cabe en la casa con el nombre más largo */}
       <div id="print-area" style={{ display: 'flex', flexWrap: 'wrap', gap: '2mm' }}>
         {labels.map(l => {
           const house = houseName(l.bag)
-          const namePt = fitName(house, textW, S.h - pad * 2 - footH, S.nameMax, S.nameMin)
           return (
             <div key={l.code} className="qr-label" style={{ width: `${S.w}mm`, height: `${S.h}mm`, padding: `${pad}mm`, display: 'flex', alignItems: 'center', gap: `${gap}mm`, background: 'white', border: '0.25mm dashed #B6BEC9', borderRadius: '2mm', boxSizing: 'border-box', overflow: 'hidden' }}>
               {qrs[l.code] ? <img src={qrs[l.code]} alt={l.code} style={{ width: `${qrSide}mm`, height: `${qrSide}mm`, flexShrink: 0 }} /> : <div style={{ width: `${qrSide}mm`, height: `${qrSide}mm`, flexShrink: 0 }} />}
