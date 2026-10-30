@@ -25,12 +25,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6"
       style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%)', fontFamily: 'Inter, sans-serif' }}>
 
-      <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '300px', height: '300px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,188,212,0.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '-60px', left: '-60px', width: '250px', height: '250px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,188,212,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '300px', height: '300px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(249,115,22,0.20) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-60px', left: '-60px', width: '250px', height: '250px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
       <div className="mb-10 text-center relative z-10">
         <h1 className="text-5xl font-black text-white tracking-tighter">
-          Shine<span style={{ color: '#FFD700' }}>UP</span>
+          Shine<span style={{ color: '#FB923C' }}>UP</span>
         </h1>
         <p className="text-white/40 text-[12px] font-semibold mt-2 tracking-widest uppercase">Laundry</p>
       </div>
@@ -70,7 +70,7 @@ export default function LoginPage() {
             {error && <div className="px-4 py-3 rounded-2xl text-[12px] font-semibold" style={{ background: '#FEE2E2', color: '#EF4444' }}>{error}</div>}
             <button type="submit" disabled={loading}
               className="w-full py-3.5 rounded-2xl font-black text-[14px] text-white transition-all active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #0097A7, #00BCD4)', opacity: loading ? 0.7 : 1 }}>
+              style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)', opacity: loading ? 0.7 : 1 }}>
               {loading ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>

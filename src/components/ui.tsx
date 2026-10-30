@@ -5,7 +5,7 @@ import type { Level, Semaforo, State } from '../lib/types'
 
 export const C = {
   ink: '#0F172A', slate: '#475569', muted: '#94A3B8', border: '#E2E8F0', bg: '#F8FAFC', white: '#FFFFFF',
-  teal: '#00BCD4', tealDark: '#0097A7', green: '#10B981', amber: '#F59E0B', red: '#EF4444', blue: '#3B82F6', violet: '#8B5CF6', orange: '#F97316',
+  teal: '#EA580C', tealDark: '#C2410C', green: '#10B981', amber: '#F59E0B', red: '#EF4444', blue: '#3B82F6', violet: '#8B5CF6', orange: '#F97316',
 }
 export const STATE_COLOR: Record<string, string> = {
   Dirty: C.orange, Inspected: C.violet, Washing: C.blue, Clean: C.green, 'In Use': '#64748B', 'Sin estado': C.muted,
