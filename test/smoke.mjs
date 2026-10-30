@@ -104,6 +104,9 @@ b = (await call('GET', 'board', 'lav')).out
 const A = b.bags.find(x => x.code === 'C-001')
 ok(A.state === 'Dirty' && A.risk === 'red' && A.daysToNext === 1, `riesgo rojo (faltan ${A.daysToNext} día)`)
 ok(b.bags[0].code === 'C-001', 'la maleta urgente va primero')
+console.log('   inventario Dirty:', JSON.stringify(A.inventory.totals))
+const balanced = (inv) => inv.rows.every(r => r.home + r.bag + r.laundry + r.missing === r.par)
+ok(A.inventory.totals.par === 23 && balanced(A.inventory), 'inventario Dirty: par 23 y cada pieza cuadra (casa+maleta+lavandería+falta = par)')
 
 console.log('inspección (laundry)')
 r = await call('POST', 'inspect', 'lav', { cycleId: cycA, counts: { 'Sheets-Q': 3, 'Sheets-K': 2, 'Bath Towels': 10, 'Hand Towels': 5 }, damaged: { 'Hand Towels': 1 } })
@@ -116,6 +119,9 @@ r = await call('POST', 'inspect', 'lav', { cycleId: cycA, counts: {} })
 ok(r.status === 409, 'no se inspecciona dos veces')
 b = (await call('GET', 'board', 'lav')).out
 ok(b.bags.find(x => x.code === 'C-001').semaforo === 'rojo', 'semáforo rojo por prenda dañada')
+{ const inv = b.bags.find(x => x.code === 'C-001').inventory
+  console.log('   inventario Inspected:', JSON.stringify(inv.totals))
+  ok(inv.totals.laundry === 20 && inv.rows.find(r => r.item === 'Sheets-Q').missing === 1 && balanced(inv), 'inventario Inspected: 20 en lavandería y falta 1 Sheets-Q') }
 
 console.log('lavado')
 r = await call('POST', 'startWash', 'lav', { cycleId: cycA, place: 'Externa' })
