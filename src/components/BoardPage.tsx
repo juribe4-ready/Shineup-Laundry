@@ -94,7 +94,7 @@ function Row({ b, onOpen }: { b: BoardBag; onOpen: (b: BoardBag) => void }) {
       <div className="flex-1 min-w-0 p-3">
         <div className="flex items-center gap-2">
           <Dot color={SEMAFORO_COLOR[b.semaforo]} size={8} />
-          <span className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{b.code || '—'} · {b.name}</span>
+          <span className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{b.codeLabel || b.code || '—'} · {b.name}</span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
           <Pill text={b.state || 'Sin estado'} color={STATE_COLOR[b.state || 'Sin estado']} />

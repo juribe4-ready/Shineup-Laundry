@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { apiGet } from '../lib/api'
 import type { BoardBag } from '../lib/types'
 import Scanner from './Scanner'
+import { resolveLocal } from '../lib/codes'
 import { Btn, C, inputStyle } from './ui'
 
 export default function ScanPage({ bags, onFound, onMsg }: { bags: BoardBag[]; onFound: (b: BoardBag, unit: number | null) => void; onMsg: (m: string, err?: boolean) => void }) {
@@ -10,10 +11,8 @@ export default function ScanPage({ bags, onFound, onMsg }: { bags: BoardBag[]; o
   const resolve = async (raw: string) => {
     const code = raw.trim().toUpperCase()
     if (!code || busy) return
-    const m = code.match(/^(.*?)-(\d+)$/)
-    const base = m ? m[1] : code
-    const local = bags.find(b => (b.code || '').toUpperCase() === code) || bags.find(b => (b.code || '').toUpperCase() === base)
-    if (local) { onFound(local, m && local.code?.toUpperCase() === base ? Number(m[2]) : null); return }
+    const local = resolveLocal(code, bags)
+    if (local) { onFound(local.bag, local.unit); return }
     setBusy(true)
     try {
       const d = await apiGet<{ bag: { id: string }; unit: number | null }>('bag', { code })

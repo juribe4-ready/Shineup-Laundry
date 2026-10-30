@@ -56,7 +56,7 @@ export default function InventoryPage({ board, onOpen }: { board: Board; onOpen:
               <div key={b.id} className="rounded-xl" style={{ background: 'white', border: `1px solid ${C.border}` }}>
                 <button className="w-full text-left p-3" onClick={() => setOpen(isOpen ? null : b.id)}>
                   <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-semibold flex-1 truncate" style={{ color: C.ink }}>{b.code || '—'} · {b.name}</span>
+                    <span className="text-[14px] font-semibold flex-1 truncate" style={{ color: C.ink }}>{b.codeLabel || b.code || '—'} · {b.name}</span>
                     <Pill text={b.state || 'Sin estado'} color={STATE_COLOR[b.state || 'Sin estado']} />
                   </div>
                   <div className="grid grid-cols-4 gap-2 mt-2 text-center">

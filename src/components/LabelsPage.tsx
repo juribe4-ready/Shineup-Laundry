@@ -3,8 +3,8 @@ import QRCode from 'qrcode'
 import { apiGet, apiPost } from '../lib/api'
 import { Btn, C, inputStyle, Spinner } from './ui'
 
-interface LB { id: string; code: string | null; name: string; qty: number; properties: string[] }
-interface Plan { id: string; name: string; old: string | null; code: string; property: string; qty: number }
+interface LB { id: string; code: string | null; codeLabel: string | null; codes: string[]; name: string; qty: number; properties: string[] }
+interface Plan { id: string; name: string; old: string | null; code: string; codes: string; property: string; qty: number }
 
 // Tamaños en mm (ancho × alto). Tag = 6.2 × 2.3 in (horizontal). Tarjeta = tarjeta de presentación.
 // Plantilla fija: QR a la izquierda · zona del NOMBRE (ocupa todo el espacio libre) · pie con código + maleta.
@@ -55,7 +55,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const labels = useMemo(() => (bags || [])
     .filter(b => b.code)
     .filter(b => !q.trim() || `${b.code} ${b.name} ${b.properties.join(' ')}`.toLowerCase().includes(q.trim().toLowerCase()))
-    .flatMap(b => Array.from({ length: Math.max(1, b.qty) }, (_, i) => ({ code: `${b.code}-${i + 1}`, bag: b, n: i + 1 }))), [bags, q])
+    .flatMap(b => Array.from({ length: Math.max(1, b.qty) }, (_, i) => ({ code: b.codes[i] || `${b.code}-${i + 1}`, bag: b, n: i + 1 }))), [bags, q])
 
   useEffect(() => {
     let dead = false
@@ -90,7 +90,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
       <div className="no-print space-y-3">
         <div className="rounded-xl p-4 space-y-2" style={{ background: 'white', border: `1px solid ${C.border}` }}>
           <p className="text-[14px] font-semibold" style={{ color: C.ink }}>Códigos</p>
-          <p className="text-[12px]" style={{ color: C.slate }}>{withCode} casas con código · {missing} sin código · formato <b>M-AH-GL-014</b> (M + 2 letras del cliente + 2 de la propiedad + correlativo). Cada maleta física agrega -1, -2…</p>
+          <p className="text-[12px]" style={{ color: C.slate }}>{withCode} casas con código · {missing} sin código · formato <b>M-AH-GL-1</b> (M + 2 letras del cliente + 2 de la propiedad + nº de maleta: la 1.ª es -1, la 2.ª es -2).</p>
           {!plan && (
             <div className="space-y-2">
               {missing > 0 && <Btn color={C.amber} disabled={busy} onClick={() => preview(false)}>Asignar a las {missing} que faltan (ver propuesta)</Btn>}
@@ -103,7 +103,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
                 {plan.regenerate ? `Vas a reemplazar el código de ${plan.rows.length} casas. Si ya imprimiste etiquetas con los códigos viejos, dejarán de funcionar.` : `Se asignarán ${plan.rows.length} códigos.`}
               </p>
               <div className="max-h-64 overflow-auto rounded-lg p-2 text-[12px]" style={{ background: C.bg, border: `1px solid ${C.border}` }}>
-                {plan.rows.map(p => <p key={p.id}><b className="font-mono">{p.code}</b> ← {p.property || p.name}{p.old ? <span style={{ color: C.muted }}> (antes {p.old})</span> : null}{p.qty > 1 ? ` · ${p.qty} maletas` : ''}</p>)}
+                {plan.rows.map(p => <p key={p.id}><b className="font-mono">{p.codes}</b> ← {p.property || p.name}{p.old ? <span style={{ color: C.muted }}> (antes {p.old})</span> : null}{p.qty > 1 ? ` · ${p.qty} maletas` : ''}</p>)}
               </div>
               <Btn color={C.green} disabled={busy} onClick={apply}>{busy ? 'Guardando…' : 'Confirmar y guardar en Airtable'}</Btn>
               <Btn ghost color={C.slate} disabled={busy} onClick={() => setPlan(null)}>Cancelar</Btn>
@@ -138,7 +138,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
                   <div style={{ fontWeight: 800, fontSize: `${namePt}pt`, lineHeight: 1.04, color: '#0F172A', letterSpacing: '-0.02em', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{house}</div>
                 </div>
                 <div style={{ height: `${footH}mm`, flexShrink: 0, display: 'flex', flexDirection: S.footRow ? 'row' : 'column', alignItems: S.footRow ? 'center' : 'flex-start', justifyContent: S.footRow ? 'space-between' : 'center', gap: '1.2mm', borderTop: '0.3mm solid #0F172A', paddingTop: '1mm' }}>
-                  <span style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontWeight: 700, fontSize: `${S.code}pt`, lineHeight: 1, color: '#334155', whiteSpace: 'nowrap' }}>{l.bag.code}<span style={{ color: '#64748B' }}>-{l.n}</span></span>
+                  <span style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontWeight: 700, fontSize: `${S.code}pt`, lineHeight: 1, color: '#334155', whiteSpace: 'nowrap' }}>{l.code}</span>
                   <span style={{ display: 'inline-block', background: '#0F172A', color: 'white', fontWeight: 700, fontSize: `${S.badge}pt`, lineHeight: 1, padding: '1.4mm 3mm', borderRadius: '1.6mm', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>MALETA {l.n}{l.bag.qty > 1 ? ` DE ${l.bag.qty}` : ''}</span>
                 </div>
               </div>

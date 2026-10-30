@@ -34,7 +34,7 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
   }, [bag.id])
 
   const cyc = bag.cycle
-  const title = `${bag.code || '(sin código)'} · ${bag.name}`
+  const title = `${bag.codeLabel || bag.code || '(sin código)'} · ${bag.name}`
 
   if (mode === 'inspect' && cyc) return <InspectForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'wash' && cyc) return <WashStartForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
