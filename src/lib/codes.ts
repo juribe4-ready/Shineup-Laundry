@@ -1,6 +1,6 @@
 // Códigos: M-AH-GL-1 (el guardado es el de la 1.ª maleta del juego; con 2 maletas son -1 y -2).
 // Códigos viejos (C-014) siguen funcionando como C-014-1, C-014-2.
-const NEW_CODE = /^(M-[A-Z]{2}-[A-Z]{2})-(\d{1,2})$/
+const NEW_CODE = /^(M-[A-Z0-9]{2}-[A-Z0-9]{2})-(\d{1,2})$/
 export const codeParts = (code?: string | null) => {
   const m = String(code || '').toUpperCase().match(NEW_CODE)
   return m ? { prefix: m[1], start: Number(m[2]) } : null
