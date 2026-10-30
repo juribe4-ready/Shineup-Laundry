@@ -9,7 +9,7 @@ const db = {
   ],
   'Ciclo de Maleta': [],
   Incidents: [{ id: 'recOld', fields: { Name: 'Silla rota', Status: 'Reported', Property: ['recP1'] } }],
-  tbl1iETmcFP460oWN: [{ id: 'recP1', fields: { Name: '999 N High St' } }, { id: 'recP2', fields: { Name: '1025 Luna' } }, { id: 'recP3', fields: { Name: 'Ahmed 1' } }, { id: 'recP4', fields: { Name: 'Alden' } }],
+  tbl1iETmcFP460oWN: [{ id: 'recP1', fields: { Name: '999 N High St' } }, { id: 'recP2', fields: { Name: '1025 Luna' } }, { id: 'recP3', fields: { Name: 'Ahmed 1' } }, { id: 'recP4', fields: { Name: 'Alden' } }, { id: 'recP5', fields: { Name: '387 E 16 th' } }],
   tblgHwN1wX6u3ZtNY: [{ id: 'recS1', fields: { Name: 'Juan Uribe', Initials: 'JU' } }, { id: 'recS2', fields: { Name: 'Paola', Initials: 'PA' } }],
   tblabOdNknnjrYUU1: [],
   Standards: [{ id: 'recCfg', fields: { Name: 'TARS_CONFIG', Value: JSON.stringify({ laundryDirtyMaxDays: 3, laundryRiskRedDays: 1 }) } }],
@@ -185,7 +185,7 @@ console.log('KPIs y etiquetas')
 r = await call('GET', 'kpis', 'lav')
 ok(r.status === 200 && r.out.cycles === 2 , `KPIs: ${r.out.cycles} ciclos, externos ${r.out.external.cycles}`)
 db['Laundry Bags'].push({ id: 'recBagD', fields: { Name: 'SinCodigo_Bag', Property: ['recP4'], 'Cantidad de maletas': 2, 'Bath Towels': 3 } })
-db['Laundry Bags'].push({ id: 'recBagE', fields: { Name: 'Aamna_Bag2', Property: ['recP2'], 'Cantidad de maletas': 1, 'Bath Towels': 3 } })
+db['Laundry Bags'].push({ id: 'recBagE', fields: { Name: '387 E 16 th', Client: ['Zoe', 'Zoe'], Property: ['recP5'], 'Cantidad de maletas': 1, 'Bath Towels': 3 } })
 r = await call('POST', 'assignCodes', 'admin', {})
 ok(r.out.plan.length === 3 && !r.out.applied, `casas sin código (simulación): ${r.out.plan.map(p => p.codes).join(' | ')}`)
 r = await call('POST', 'assignCodes', 'admin', { regenerate: true })
