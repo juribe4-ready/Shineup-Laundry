@@ -1,3 +1,4 @@
+import { InventoryTable } from './InventoryTable'
 import { useEffect, useState } from 'react'
 import { Camera, AlertTriangle, Droplets, ClipboardCheck, PackageCheck } from 'lucide-react'
 import { apiGet, apiPost } from '../lib/api'
@@ -58,8 +59,8 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
         {bag.daysDirty != null && <Pill text={`Sucia hace ${bag.daysDirty} d`} color={LEVEL_COLOR[bag.dirtyLevel]} />}
       </div>
 
-      <div className="rounded-2xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
-        <p className="text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: C.muted }}>Propiedades</p>
+      <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
+        <p className="text-[11px] font-medium uppercase tracking-wide mb-1" style={{ color: C.muted }}>Propiedades</p>
         <p className="text-[13px] font-semibold" style={{ color: C.ink }}>{bag.properties.map(p => p.name).join(' · ') || '—'}</p>
         {bag.nextCleaning && (
           <p className="text-[12px] font-semibold mt-1.5" style={{ color: LEVEL_COLOR[bag.risk] }}>
@@ -69,33 +70,28 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
       </div>
 
       {cyc && cyc.special && (
-        <div className="rounded-2xl p-3" style={{ background: '#FEF3C7', border: '1.5px solid #FCD34D' }}>
-          <p className="text-[12px] font-black mb-1" style={{ color: '#92400E' }}>⚠ TRATAMIENTO ESPECIAL · condición {cyc.condition}</p>
+        <div className="rounded-xl p-3" style={{ background: '#FEF3C7', border: '1.5px solid #FCD34D' }}>
+          <p className="text-[12px] font-semibold mb-1" style={{ color: '#92400E' }}>⚠ TRATAMIENTO ESPECIAL · condición {cyc.condition}</p>
           {cyc.tags.length > 0 && <p className="text-[12px] font-semibold" style={{ color: '#92400E' }}>{cyc.tags.join(' · ')}</p>}
           {cyc.cleanerNote && <p className="text-[12px] mt-1" style={{ color: '#92400E' }}>“{cyc.cleanerNote}” — {cyc.declaredBy}</p>}
         </div>
       )}
 
       {cyc && cyc.short.length > 0 && (
-        <div className="rounded-2xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
-          <p className="text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: C.muted }}>Piezas que el cleaner NO envía sucias</p>
+        <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
+          <p className="text-[11px] font-medium uppercase tracking-wide mb-1" style={{ color: C.muted }}>Piezas que el cleaner NO envía sucias</p>
           {cyc.short.map(s => <p key={s.item} className="text-[13px] font-semibold" style={{ color: C.ink }}>{s.item} ×{s.qty}{s.kind === 'left' ? ' — quedó limpio en la casa' : s.kind === 'clean' ? ' — regresa limpio' : ''}{s.reason ? ` — ${s.reason}` : ''}</p>)}
         </div>
       )}
 
-      <div className="rounded-2xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
-        <p className="text-[11px] font-bold uppercase tracking-wide mb-2" style={{ color: C.muted }}>Contenido estándar</p>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          {Object.entries(bag.standard).map(([k, v]) => (
-            <div key={k} className="flex justify-between text-[12px]"><span style={{ color: C.slate }}>{k}</span><span className="font-black" style={{ color: C.ink }}>{v}</span></div>
-          ))}
-          {Object.keys(bag.standard).length === 0 && <p className="text-[12px]" style={{ color: C.muted }}>Sin contenido definido en la tabla Laundry.</p>}
-        </div>
+      <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
+        <p className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: C.muted }}>Dónde está cada pieza</p>
+        <InventoryTable rows={bag.inventory.rows} totals={bag.inventory.totals} compact />
       </div>
 
       {cyc && (
-        <div className="rounded-2xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
-          <p className="text-[11px] font-bold uppercase tracking-wide mb-2" style={{ color: C.muted }}>Ciclo actual</p>
+        <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
+          <p className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: C.muted }}>Ciclo actual</p>
           <div className="space-y-1 text-[12px]" style={{ color: C.slate }}>
             {cyc.bagsOut != null && <p>Maletas: llevadas <b>{cyc.bagsOut}</b> · devueltas <b>{cyc.bagsBack ?? '—'}</b>{cyc.unitsBack.length > 0 && ` (${cyc.unitsBack.map(u => `#${u.unit} ${u.status === 'dirty' ? 'sucia' : u.status === 'clean' ? 'limpia' : 'se quedó en la casa'}`).join(', ')})`}</p>}
             <p>Dirty: <b>{fmtDateTime(cyc.dirtyAt)}</b> {cyc.declaredBy ? `· declaró ${cyc.declaredBy}` : ''}</p>
@@ -113,8 +109,8 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
         </div>
       )}
 
-      <div className="rounded-2xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
-        <p className="text-[11px] font-bold uppercase tracking-wide mb-2" style={{ color: C.muted }}>Incidentes abiertos</p>
+      <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
+        <p className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: C.muted }}>Incidentes abiertos</p>
         {incidents === null ? <Spinner size={16} /> : incidents.length === 0 ? <p className="text-[12px]" style={{ color: C.muted }}>Ninguno 🎉</p> : incidents.map(i => (
           <div key={i.id} className="flex items-center gap-2 py-1">
             <Dot color={i.type === 'Faltante' ? C.amber : i.type === 'Dañado' || i.type === 'Sucio / Manchado' ? C.red : C.slate} />
@@ -160,14 +156,14 @@ function InspectForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose
         <Btn color={C.violet} disabled={busy || (diffs.length === 0 && !hasFlags) || needPhoto} onClick={() => send(false)}>Guardar corrección ({diffs.length + Object.values(damaged).filter(n => n > 0).length + Object.values(stained).filter(n => n > 0).length} diferencias)</Btn>
       </>}>
       {cyc.special && (
-        <div className="rounded-2xl p-3" style={{ background: '#FEF3C7', border: '1.5px solid #FCD34D' }}>
-          <p className="text-[12px] font-black" style={{ color: '#92400E' }}>⚠ El cleaner reportó condición {cyc.condition}: {cyc.tags.join(', ') || 'ver nota'}</p>
+        <div className="rounded-xl p-3" style={{ background: '#FEF3C7', border: '1.5px solid #FCD34D' }}>
+          <p className="text-[12px] font-semibold" style={{ color: '#92400E' }}>⚠ El cleaner reportó condición {cyc.condition}: {cyc.tags.join(', ') || 'ver nota'}</p>
           {cyc.cleanerNote && <p className="text-[12px] mt-1" style={{ color: '#92400E' }}>“{cyc.cleanerNote}”</p>}
         </div>
       )}
       {cyc.stayedUnits > 0 && (
-        <div className="rounded-2xl p-3" style={{ background: '#E0F2FE', border: '1.5px solid #7DD3FC' }}>
-          <p className="text-[12px] font-bold" style={{ color: '#075985' }}>El cleaner dejó {cyc.stayedUnits} maleta(s) en la casa: llegaron {cyc.bagsBack} de {cyc.bagsOut}. Los faltantes de piezas se consideran explicados y no crean incidente.</p>
+        <div className="rounded-xl p-3" style={{ background: '#E0F2FE', border: '1.5px solid #7DD3FC' }}>
+          <p className="text-[12px] font-medium" style={{ color: '#075985' }}>El cleaner dejó {cyc.stayedUnits} maleta(s) en la casa: llegaron {cyc.bagsBack} de {cyc.bagsOut}. Los faltantes de piezas se consideran explicados y no crean incidente.</p>
           <label className="flex items-center gap-2 mt-1.5 text-[12px] font-semibold" style={{ color: '#075985' }}><input type="checkbox" checked={reportMissing} onChange={e => setReportMissing(e.target.checked)} /> Reportar faltantes como incidente igual</label>
         </div>
       )}
@@ -176,23 +172,23 @@ function InspectForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose
       {Object.keys(expected).map(it => {
         const diff = (counts[it] ?? 0) - expected[it]
         return (
-          <div key={it} className="rounded-2xl p-3" style={{ background: 'white', border: `1.5px solid ${diff !== 0 ? C.amber : C.border}` }}>
+          <div key={it} className="rounded-xl p-3" style={{ background: 'white', border: `1.5px solid ${diff !== 0 ? C.amber : C.border}` }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[13px] font-bold" style={{ color: C.ink }}>{it}</p>
+                <p className="text-[13px] font-medium" style={{ color: C.ink }}>{it}</p>
                 <p className="text-[11px]" style={{ color: diff < 0 ? C.red : diff > 0 ? C.amber : C.muted }}>
                   Esperado {expected[it]}{diff !== 0 ? ` · ${diff < 0 ? `faltan ${-diff}` : `sobran ${diff}`}` : ''}
                 </p>
               </div>
               <Stepper value={counts[it] ?? 0} onChange={n => setCounts(c => ({ ...c, [it]: n }))} color={diff !== 0 ? C.amber : C.ink} />
             </div>
-            <button onClick={() => setFlagOpen(flagOpen === it ? null : it)} className="text-[11px] font-bold mt-2" style={{ color: C.red }}>
+            <button onClick={() => setFlagOpen(flagOpen === it ? null : it)} className="text-[11px] font-medium mt-2" style={{ color: C.red }}>
               {(damaged[it] || stained[it]) ? `Dañado ${damaged[it] || 0} · Manchado ${stained[it] || 0}` : '＋ marcar dañado / manchado'}
             </button>
             {flagOpen === it && (
               <div className="flex gap-6 mt-2">
-                <div><p className="text-[10px] font-bold mb-1" style={{ color: C.muted }}>DAÑADO</p><Stepper value={damaged[it] || 0} onChange={n => setDamaged(d => ({ ...d, [it]: n }))} color={C.red} max={counts[it] ?? 99} /></div>
-                <div><p className="text-[10px] font-bold mb-1" style={{ color: C.muted }}>MANCHADO</p><Stepper value={stained[it] || 0} onChange={n => setStained(d => ({ ...d, [it]: n }))} color={C.red} max={counts[it] ?? 99} /></div>
+                <div><p className="text-[10px] font-medium mb-1" style={{ color: C.muted }}>DAÑADO</p><Stepper value={damaged[it] || 0} onChange={n => setDamaged(d => ({ ...d, [it]: n }))} color={C.red} max={counts[it] ?? 99} /></div>
+                <div><p className="text-[10px] font-medium mb-1" style={{ color: C.muted }}>MANCHADO</p><Stepper value={stained[it] || 0} onChange={n => setStained(d => ({ ...d, [it]: n }))} color={C.red} max={counts[it] ?? 99} /></div>
               </div>
             )}
           </div>
@@ -200,7 +196,7 @@ function InspectForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose
       })}
       <Field label="Nota (opcional)"><textarea value={note} onChange={e => setNote(e.target.value)} rows={2} style={inputStyle} placeholder="Ej. olor fuerte, cabello en las sábanas…" /></Field>
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: C.muted }}><Camera className="inline w-3 h-3" /> Fotos {hasFlags ? '(obligatoria por daño/mancha)' : '(opcional)'}</p>
+        <p className="text-[11px] font-medium uppercase tracking-wide mb-1" style={{ color: C.muted }}><Camera className="inline w-3 h-3" /> Fotos {hasFlags ? '(obligatoria por daño/mancha)' : '(opcional)'}</p>
         <PhotoPicker tag={`insp_${bag.code || bag.id}`} urls={photos} onChange={setPhotos} required={hasFlags} />
         {hasFlags && !photos.length && (
           <label className="flex items-center gap-2 mt-2 text-[12px] font-semibold" style={{ color: C.slate }}>
@@ -227,11 +223,11 @@ function WashStartForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClo
   return (
     <Sheet title={`Iniciar lavado · ${bag.code || bag.name}`} onClose={onClose}
       footer={<Btn color={C.blue} disabled={busy} onClick={go}><Droplets className="w-4 h-4" /> Iniciar lavado ahora</Btn>}>
-      {cyc.special && <div className="rounded-2xl p-3 text-[12px] font-bold" style={{ background: '#FEF3C7', color: '#92400E' }}>⚠ Tratamiento especial: {cyc.tags.join(', ') || cyc.condition}</div>}
+      {cyc.special && <div className="rounded-xl p-3 text-[12px] font-medium" style={{ background: '#FEF3C7', color: '#92400E' }}>⚠ Tratamiento especial: {cyc.tags.join(', ') || cyc.condition}</div>}
       <Field label="¿Dónde se lava?">
         <div className="grid grid-cols-2 gap-2">
           {(['Propia', 'Externa'] as const).map(p => (
-            <button key={p} onClick={() => setPlace(p)} className="py-3 rounded-2xl font-bold text-[14px]"
+            <button key={p} onClick={() => setPlace(p)} className="py-3 rounded-xl font-medium text-[14px]"
               style={{ background: place === p ? C.blue : 'white', color: place === p ? 'white' : C.slate, border: `1.5px solid ${place === p ? C.blue : C.border}` }}>{p === 'Propia' ? '🏠 Propia' : '🚚 Externa'}</button>
           ))}
         </div>
@@ -273,7 +269,7 @@ function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
     <Sheet title="¿Cerrar incidentes?" onClose={() => onDone('Clean ✓')}
       footer={<><Btn color={C.green} disabled={busy} onClick={closeAll}>Sí, cerrarlos (Reemplazado)</Btn><Btn ghost color={C.slate} onClick={() => onDone('Clean ✓')}>No, dejarlos abiertos</Btn></>}>
       <p className="text-[13px]" style={{ color: C.slate }}>Agregaste piezas nuevas y hay incidentes abiertos de esos ítems:</p>
-      {suggest.map(i => <p key={i.id} className="text-[13px] font-bold" style={{ color: C.ink }}>{i.type} · {i.item}{i.qty ? ` ×${i.qty}` : ''}</p>)}
+      {suggest.map(i => <p key={i.id} className="text-[13px] font-medium" style={{ color: C.ink }}>{i.type} · {i.item}{i.qty ? ` ×${i.qty}` : ''}</p>)}
     </Sheet>
   )
   return (
@@ -283,17 +279,17 @@ function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
       {Object.keys(base).map(it => {
         const lostHere = (counts[it] ?? 0) < base[it] - (discarded[it] || 0)
         return (
-          <div key={it} className="rounded-2xl p-3 flex items-center justify-between" style={{ background: 'white', border: `1.5px solid ${lostHere ? C.red : C.border}` }}>
+          <div key={it} className="rounded-xl p-3 flex items-center justify-between" style={{ background: 'white', border: `1.5px solid ${lostHere ? C.red : C.border}` }}>
             <div>
-              <p className="text-[13px] font-bold" style={{ color: C.ink }}>{it}</p>
+              <p className="text-[13px] font-medium" style={{ color: C.ink }}>{it}</p>
               <p className="text-[11px]" style={{ color: lostHere ? C.red : C.muted }}>Entró {base[it]}{lostHere ? ' · faltante (se crea incidente)' : ''}</p>
-              <button onClick={() => setDiscarded(d => ({ ...d, [it]: (d[it] || 0) + 1 }))} className="text-[11px] font-bold mt-1" style={{ color: C.slate }}>
+              <button onClick={() => setDiscarded(d => ({ ...d, [it]: (d[it] || 0) + 1 }))} className="text-[11px] font-medium mt-1" style={{ color: C.slate }}>
                 {discarded[it] ? `Retiradas: ${discarded[it]} (tocar para sumar)` : '＋ retirada por daño/mancha'}
               </button>
             </div>
             <Stepper value={counts[it] ?? 0} onChange={n => setCounts(c => ({ ...c, [it]: n }))} />
             <div className="ml-3 text-center">
-              <p className="text-[9px] font-bold uppercase" style={{ color: C.muted }}>Nuevas +</p>
+              <p className="text-[9px] font-medium uppercase" style={{ color: C.muted }}>Nuevas +</p>
               <Stepper value={added[it] || 0} onChange={n => setAdded(a => ({ ...a, [it]: n }))} color={C.green} />
             </div>
           </div>
@@ -329,7 +325,7 @@ function IncidentForm({ bag, items, unit, onClose, onDone, onError }: { bag: Boa
       footer={<Btn color={C.red} disabled={busy || (needsItem && !item)} onClick={go}>Registrar incidente</Btn>}>
       <Field label="Tipo">
         <div className="flex flex-wrap gap-2">
-          {types.map(t => <button key={t} onClick={() => setType(t)} className="px-3 py-2 rounded-xl text-[12px] font-bold" style={{ background: type === t ? C.red : 'white', color: type === t ? 'white' : C.slate, border: `1.5px solid ${type === t ? C.red : C.border}` }}>{t}</button>)}
+          {types.map(t => <button key={t} onClick={() => setType(t)} className="px-3 py-2 rounded-xl text-[12px] font-medium" style={{ background: type === t ? C.red : 'white', color: type === t ? 'white' : C.slate, border: `1.5px solid ${type === t ? C.red : C.border}` }}>{t}</button>)}
         </div>
       </Field>
       {needsItem && (

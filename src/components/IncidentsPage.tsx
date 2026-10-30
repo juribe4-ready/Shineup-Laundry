@@ -14,14 +14,14 @@ export default function IncidentsPage({ me, onMsg }: { me: Me; cfg: ConfigInfo |
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
         {(['open', 'closed'] as const).map(s => (
-          <button key={s} onClick={() => setStatus(s)} className="py-2 rounded-xl text-[13px] font-bold" style={{ background: status === s ? C.ink : 'white', color: status === s ? 'white' : C.slate, border: `1px solid ${C.border}` }}>{s === 'open' ? 'Abiertos' : 'Cerrados'}</button>
+          <button key={s} onClick={() => setStatus(s)} className="py-2 rounded-xl text-[13px] font-medium" style={{ background: status === s ? C.ink : 'white', color: status === s ? 'white' : C.slate, border: `1px solid ${C.border}` }}>{s === 'open' ? 'Abiertos' : 'Cerrados'}</button>
         ))}
       </div>
       {list === null ? <div className="flex justify-center py-8"><Spinner /></div> : list.map(i => (
         <Card key={i.id}>
           <button className="w-full text-left" onClick={() => setSel(i)}>
             <div className="flex items-center gap-2">
-              <span className="text-[14px] font-black flex-1" style={{ color: C.ink }}>{i.type || 'Incidente'} · {i.item || 'maleta'}{i.qty ? ` ×${i.qty}` : ''}</span>
+              <span className="text-[14px] font-semibold flex-1" style={{ color: C.ink }}>{i.type || 'Incidente'} · {i.item || 'maleta'}{i.qty ? ` ×${i.qty}` : ''}</span>
               <Pill text={i.status === 'Reported' ? 'Reportado' : i.status === 'In Progress' ? 'En curso' : 'Cerrado'} color={i.status === 'Closed' ? C.green : i.status === 'In Progress' ? C.blue : C.amber} />
             </div>
             <p className="text-[12px] mt-1" style={{ color: C.slate }}>{i.bagName || '—'} · {fmtDateTime(i.created)}</p>
@@ -60,7 +60,7 @@ function IncidentSheet({ inc, me, onClose, onSaved, onError }: { inc: Incident; 
       <Field label="Estado">
         <div className="grid grid-cols-3 gap-2">
           {(['Reported', 'In Progress', 'Closed'] as const).map(s => (
-            <button key={s} onClick={() => setStatus(s)} className="py-2 rounded-xl text-[12px] font-bold" style={{ background: status === s ? C.ink : 'white', color: status === s ? 'white' : C.slate, border: `1px solid ${C.border}` }}>{s === 'Reported' ? 'Reportado' : s === 'In Progress' ? 'En curso' : 'Cerrado'}</button>
+            <button key={s} onClick={() => setStatus(s)} className="py-2 rounded-xl text-[12px] font-medium" style={{ background: status === s ? C.ink : 'white', color: status === s ? 'white' : C.slate, border: `1px solid ${C.border}` }}>{s === 'Reported' ? 'Reportado' : s === 'In Progress' ? 'En curso' : 'Cerrado'}</button>
           ))}
         </div>
       </Field>

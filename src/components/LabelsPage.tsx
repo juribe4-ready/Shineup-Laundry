@@ -34,7 +34,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
       <div className="no-print space-y-2">
         {missing > 0 && !plan && <Btn color={C.amber} onClick={preview}>{missing} maletas sin código: ver propuesta</Btn>}
         {plan && (
-          <div className="rounded-2xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
+          <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
             {plan.map(p => <p key={p.id} className="text-[12px]"><b>{p.code}</b> ← {p.name}</p>)}
             <div className="mt-2 space-y-2"><Btn color={C.green} onClick={apply}>Confirmar y guardar en Airtable</Btn><Btn ghost color={C.slate} onClick={() => setPlan(null)}>Cancelar</Btn></div>
           </div>
@@ -45,7 +45,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
         {labels.map(l => (
           <div key={l.code} className="label-card rounded-xl p-2 text-center" style={{ background: 'white', border: `1px dashed ${C.muted}` }}>
             {qrs[l.code] && <img src={qrs[l.code]} alt={l.code} className="mx-auto" style={{ width: 110, height: 110 }} />}
-            <p className="text-[15px] font-black" style={{ color: C.ink }}>{l.code}</p>
+            <p className="text-[15px] font-semibold" style={{ color: C.ink }}>{l.code}</p>
             <p className="text-[9px]" style={{ color: C.slate }}>{l.bag.name}{l.bag.qty > 1 ? ` · ${l.n}/${l.bag.qty}` : ''}</p>
           </div>
         ))}

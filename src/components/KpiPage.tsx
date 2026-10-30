@@ -17,8 +17,8 @@ export default function KpiPage({ onMsg }: { onMsg: (m: string, err?: boolean) =
   return (
     <div className="space-y-3 pb-4">
       <div className="flex gap-2 no-print">
-        {[7, 30, 90].map(d => <button key={d} onClick={() => setDays(d)} className="px-3 py-1.5 rounded-full text-[12px] font-bold" style={{ background: days === d ? C.ink : 'white', color: days === d ? 'white' : C.slate, border: `1px solid ${C.border}` }}>{d} días</button>)}
-        <button onClick={() => window.print()} className="ml-auto px-3 py-1.5 rounded-full text-[12px] font-bold" style={{ background: 'white', color: C.slate, border: `1px solid ${C.border}` }}>Imprimir / PDF</button>
+        {[7, 30, 90].map(d => <button key={d} onClick={() => setDays(d)} className="px-3 py-1.5 rounded-full text-[12px] font-medium" style={{ background: days === d ? C.ink : 'white', color: days === d ? 'white' : C.slate, border: `1px solid ${C.border}` }}>{d} días</button>)}
+        <button onClick={() => window.print()} className="ml-auto px-3 py-1.5 rounded-full text-[12px] font-medium" style={{ background: 'white', color: C.slate, border: `1px solid ${C.border}` }}>Imprimir / PDF</button>
       </div>
       {!k ? <div className="flex justify-center py-8"><Spinner /></div> : (
         <>
@@ -49,13 +49,13 @@ export default function KpiPage({ onMsg }: { onMsg: (m: string, err?: boolean) =
   )
 }
 const T = ({ label, v, sub }: { label: string; v: string; sub?: string }) => (
-  <div className="rounded-2xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
-    <p className="text-[10px] font-bold uppercase" style={{ color: C.muted }}>{label}</p>
-    <p className="text-[22px] font-black" style={{ color: C.ink }}>{v}</p>
+  <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}` }}>
+    <p className="text-[10px] font-medium uppercase" style={{ color: C.muted }}>{label}</p>
+    <p className="text-[22px] font-semibold" style={{ color: C.ink }}>{v}</p>
     {sub && <p className="text-[10px]" style={{ color: C.slate }}>{sub}</p>}
   </div>
 )
 const Row = ({ a, b }: { a: string; b: string }) => <div className="flex justify-between py-1 text-[12px]"><span className="font-semibold" style={{ color: C.ink }}>{a}</span><span style={{ color: C.slate }}>{b}</span></div>
 const List = ({ title, rows }: { title: string; rows: { name: string; n: number }[] }) => (
-  <Card><p className="text-[11px] font-bold uppercase mb-1" style={{ color: C.muted }}>{title}</p>{rows.length === 0 ? <p className="text-[12px]" style={{ color: C.muted }}>—</p> : rows.map(r => <Row key={r.name} a={r.name} b={String(r.n)} />)}</Card>
+  <Card><p className="text-[11px] font-medium uppercase mb-1" style={{ color: C.muted }}>{title}</p>{rows.length === 0 ? <p className="text-[12px]" style={{ color: C.muted }}>—</p> : rows.map(r => <Row key={r.name} a={r.name} b={String(r.n)} />)}</Card>
 )

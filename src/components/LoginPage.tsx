@@ -23,7 +23,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6"
-      style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%)', fontFamily: 'Poppins, sans-serif' }}>
+      style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%)', fontFamily: 'Inter, sans-serif' }}>
 
       <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '300px', height: '300px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,188,212,0.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', bottom: '-60px', left: '-60px', width: '250px', height: '250px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,188,212,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
@@ -62,11 +62,11 @@ export default function LoginPage() {
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="Correo electrónico" required
               className="w-full px-4 py-3 rounded-2xl text-[13px] font-medium outline-none"
-              style={{ fontFamily: 'Poppins, sans-serif', border: '1.5px solid #E2E8F0', color: '#0F172A', background: '#F8FAFC' }} />
+              style={{ fontFamily: 'Inter, sans-serif', border: '1.5px solid #E2E8F0', color: '#0F172A', background: '#F8FAFC' }} />
             <input type="password" value={password} onChange={e => setPassword(e.target.value)}
               placeholder="Contraseña" required
               className="w-full px-4 py-3 rounded-2xl text-[13px] font-medium outline-none"
-              style={{ fontFamily: 'Poppins, sans-serif', border: '1.5px solid #E2E8F0', color: '#0F172A', background: '#F8FAFC' }} />
+              style={{ fontFamily: 'Inter, sans-serif', border: '1.5px solid #E2E8F0', color: '#0F172A', background: '#F8FAFC' }} />
             {error && <div className="px-4 py-3 rounded-2xl text-[12px] font-semibold" style={{ background: '#FEE2E2', color: '#EF4444' }}>{error}</div>}
             <button type="submit" disabled={loading}
               className="w-full py-3.5 rounded-2xl font-black text-[14px] text-white transition-all active:scale-95"

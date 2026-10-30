@@ -69,7 +69,7 @@ export default function Scanner({ onCode, paused = false }: { onCode: (code: str
   }, [])
 
   return (
-    <div className="relative rounded-3xl overflow-hidden" style={{ background: '#000', aspectRatio: '4 / 3' }}>
+    <div className="relative rounded-xl overflow-hidden" style={{ background: '#000', aspectRatio: '4 / 3' }}>
       <video ref={videoRef} muted playsInline className="w-full h-full object-cover" />
       <canvas ref={canvasRef} className="hidden" />
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center">

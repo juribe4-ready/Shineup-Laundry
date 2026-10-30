@@ -16,7 +16,7 @@ export default function DebugPanel() {
         <Bug className="w-4 h-4 mx-auto" />
       </button>
       {open && (
-        <div className="fixed inset-x-2 z-[80] rounded-2xl p-3 overflow-auto no-print" style={{ bottom: 122, maxHeight: '60vh', background: '#0F172A', color: '#E2E8F0', fontSize: 11, fontFamily: 'monospace' }}>
+        <div className="fixed inset-x-2 z-[80] rounded-xl p-3 overflow-auto no-print" style={{ bottom: 122, maxHeight: '60vh', background: '#0F172A', color: '#E2E8F0', fontSize: 11, fontFamily: 'monospace' }}>
           <p className="font-bold mb-1">Diagnóstico</p>
           <pre className="whitespace-pre-wrap break-all mb-2">{JSON.stringify(extra, null, 1)}</pre>
           <p className="font-bold mb-1">Últimas llamadas</p>

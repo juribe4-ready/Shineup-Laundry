@@ -4,7 +4,7 @@ import { uploadPhoto } from '../lib/photos'
 import type { Level, Semaforo, State } from '../lib/types'
 
 export const C = {
-  ink: '#0F172A', slate: '#475569', muted: '#94A3B8', border: '#E2E8F0', bg: '#F1F5F9', white: '#FFFFFF',
+  ink: '#0F172A', slate: '#475569', muted: '#94A3B8', border: '#E2E8F0', bg: '#F8FAFC', white: '#FFFFFF',
   teal: '#00BCD4', tealDark: '#0097A7', green: '#10B981', amber: '#F59E0B', red: '#EF4444', blue: '#3B82F6', violet: '#8B5CF6', orange: '#F97316',
 }
 export const STATE_COLOR: Record<string, string> = {
@@ -24,7 +24,7 @@ export function Spinner({ size = 20 }: { size?: number }) {
 
 export function Pill({ text, color, solid = false }: { text: string; color: string; solid?: boolean }) {
   return (
-    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
+    <span className="text-[10px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap"
       style={solid ? { background: color, color: 'white' } : { background: color + '1F', color }}>
       {text}
     </span>
@@ -40,7 +40,7 @@ export function Btn({ children, onClick, color = C.teal, disabled, full = true, 
 }) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`rounded-2xl font-bold active:scale-95 transition-all flex items-center justify-center gap-2 ${full ? 'w-full' : ''} ${small ? 'px-3 py-2 text-[12px]' : 'py-3.5 text-[14px] px-4'}`}
+      className={`rounded-xl font-medium active:scale-95 transition-all flex items-center justify-center gap-2 ${full ? 'w-full' : ''} ${small ? 'px-3 py-2 text-[12px]' : 'py-3.5 text-[14px] px-4'}`}
       style={ghost ? { background: 'white', color, border: `1.5px solid ${color}`, opacity: disabled ? 0.5 : 1 } : { background: disabled ? C.muted : color, color: 'white', opacity: disabled ? 0.7 : 1 }}>
       {children}
     </button>
@@ -48,13 +48,13 @@ export function Btn({ children, onClick, color = C.teal, disabled, full = true, 
 }
 
 export function Card({ children, pad = true, style }: { children: ReactNode; pad?: boolean; style?: React.CSSProperties }) {
-  return <div className="rounded-3xl shadow-sm" style={{ background: 'white', border: `1px solid ${C.border}`, padding: pad ? 16 : 0, ...style }}>{children}</div>
+  return <div className="rounded-xl" style={{ background: 'white', border: `1px solid ${C.border}`, padding: pad ? 16 : 0, ...style }}>{children}</div>
 }
 
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="flex items-center justify-between mb-2 mt-1">
-      <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: C.muted }}>{children}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{children}</p>
       {right}
     </div>
   )
@@ -68,9 +68,9 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
   }, [])
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center no-print" style={{ background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(3px)' }} onClick={onClose}>
-      <div className="w-full sm:max-w-xl flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden" style={{ background: C.bg, maxHeight: '94vh' }} onClick={e => e.stopPropagation()}>
+      <div className="w-full sm:max-w-xl flex flex-col rounded-t-3xl sm:rounded-xl overflow-hidden" style={{ background: C.bg, maxHeight: '94vh' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4" style={{ background: 'white', borderBottom: `1px solid ${C.border}` }}>
-          <p className="font-black text-[16px] truncate pr-3" style={{ color: C.ink }}>{title}</p>
+          <p className="font-semibold text-[16px] truncate pr-3" style={{ color: C.ink }}>{title}</p>
           <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: C.bg }}><X className="w-4 h-4" style={{ color: C.slate }} /></button>
         </div>
         <div className="overflow-y-auto px-4 py-4 space-y-3 flex-1">{children}</div>
@@ -86,7 +86,7 @@ export function Stepper({ value, onChange, min = 0, max = 99, color = C.teal }: 
       <button onClick={() => onChange(Math.max(min, value - 1))} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90" style={{ background: C.bg, border: `1px solid ${C.border}` }}>
         <Minus className="w-4 h-4" style={{ color: C.slate }} />
       </button>
-      <span className="w-8 text-center font-black text-[16px]" style={{ color }}>{value}</span>
+      <span className="w-8 text-center font-semibold text-[16px]" style={{ color }}>{value}</span>
       <button onClick={() => onChange(Math.min(max, value + 1))} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90" style={{ background: C.bg, border: `1px solid ${C.border}` }}>
         <Plus className="w-4 h-4" style={{ color: C.slate }} />
       </button>
@@ -97,7 +97,7 @@ export function Stepper({ value, onChange, min = 0, max = 99, color = C.teal }: 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="text-[11px] font-bold uppercase tracking-wide block mb-1" style={{ color: C.muted }}>{label}</span>
+      <span className="text-[11px] font-medium uppercase tracking-wide block mb-1" style={{ color: C.muted }}>{label}</span>
       {children}
     </label>
   )
@@ -108,7 +108,7 @@ export function useToast() {
   const [toast, setToast] = useState<{ msg: string; err: boolean } | null>(null)
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3500); return () => clearTimeout(t) }, [toast])
   const node = toast ? (
-    <div className="fixed left-1/2 -translate-x-1/2 top-4 z-[90] px-5 py-3 rounded-2xl text-white text-[13px] font-bold shadow-xl no-print max-w-[90vw] text-center"
+    <div className="fixed left-1/2 -translate-x-1/2 top-4 z-[90] px-5 py-3 rounded-xl text-white text-[13px] font-medium shadow-xl no-print max-w-[90vw] text-center"
       style={{ background: toast.err ? C.red : C.ink }}>{toast.msg}</div>
   ) : null
   return { show: (msg: string, err = false) => setToast({ msg, err }), node }
@@ -134,13 +134,13 @@ export function PhotoPicker({ tag, urls, onChange, required }: { tag: string; ur
     <div>
       <div className="flex flex-wrap gap-2 mb-2">
         {urls.map((u, i) => (
-          <div key={u} className="relative w-16 h-16 rounded-2xl overflow-hidden" style={{ border: `2px solid ${C.teal}` }}>
+          <div key={u} className="relative w-16 h-16 rounded-xl overflow-hidden" style={{ border: `2px solid ${C.teal}` }}>
             <img src={u} alt="" className="w-full h-full object-cover" />
             <button onClick={() => onChange(urls.filter((_, j) => j !== i))} className="absolute top-0 right-0 w-5 h-5 bg-black/60 text-white flex items-center justify-center rounded-bl-lg"><X className="w-3 h-3" /></button>
           </div>
         ))}
       </div>
-      <label className="w-full py-3 rounded-2xl border-2 border-dashed flex items-center justify-center gap-2 text-[13px] font-bold cursor-pointer"
+      <label className="w-full py-3 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 text-[13px] font-medium cursor-pointer"
         style={{ borderColor: required && !urls.length ? C.red : C.slate, color: required && !urls.length ? C.red : C.slate, opacity: busy ? 0.6 : 1 }}>
         {busy ? <Spinner size={16} /> : <Camera className="w-4 h-4" />}
         {busy ? 'Subiendo…' : required && !urls.length ? 'Foto obligatoria' : 'Agregar foto'}
