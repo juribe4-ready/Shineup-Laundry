@@ -14,7 +14,7 @@ async function parseBody(req) {
 const READS = {
   me: (ctx) => A.actMe(ctx),
   config: () => A.actConfig(),
-  board: () => buildBoard(),
+  board: () => A.actBoard(),
   bag: (ctx) => A.actBag(ctx),
   bagsByProperty: (ctx) => A.actBagsByProperty(ctx),
   cycle: (ctx) => A.actCycle(ctx),
