@@ -73,31 +73,70 @@ function Main() {
   const items = cfg ? [] : []
   const bagItems = board?.debug.items || items
 
+  const visible = tabs.filter(t => t.show)
+  const current = visible.find(t => t.k === tab) || visible[0]
+  const dateTxt = (() => { const t = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/New_York' }); return t.charAt(0).toUpperCase() + t.slice(1) })()
+  const SIDE = '#0F172A'
+
   return (
-    <div className="min-h-screen pb-24" style={{ background: C.bg }}>
+    <div className="min-h-screen pb-20 md:pb-0" style={{ background: C.bg }}>
       {toast.node}
-      <header className="sticky top-0 z-30 px-4 py-3 flex items-center justify-between no-print" style={{ background: 'linear-gradient(135deg, #FB923C, #EA580C)' }}>
-        <h1 className="flex items-baseline gap-2">
-          <span className="text-[22px] font-extrabold tracking-tight text-white">Shine<span style={{ color: '#0F172A' }}>UP</span></span>
-          <span className="text-[12px] font-semibold uppercase tracking-wider text-white/80">Laundry</span>
-        </h1>
-        <button onClick={() => supabase.auth.signOut()} className="text-white/90"><LogOut className="w-5 h-5" /></button>
+
+      {/* Barra lateral (escritorio) */}
+      <aside className="hidden md:flex fixed inset-y-0 left-0 w-[232px] flex-col no-print z-30" style={{ background: SIDE }}>
+        <div className="px-5 pt-6 pb-5">
+          <p className="text-[22px] font-extrabold tracking-tight leading-none text-white">Shine<span style={{ color: '#FB923C' }}>UP</span></p>
+          <p className="text-[10px] font-semibold uppercase mt-1.5" style={{ color: '#94A3B8', letterSpacing: '0.22em' }}>Laundry</p>
+        </div>
+        <nav className="flex-1 px-3 space-y-1">
+          {visible.map(t => {
+            const on = tab === t.k
+            return (
+              <button key={t.k} onClick={() => setTab(t.k)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-left transition-colors"
+                style={{ background: on ? 'rgba(251,146,60,0.14)' : 'transparent', color: on ? '#FDBA74' : '#CBD5E1' }}>
+                {t.icon}{t.label}
+              </button>
+            )
+          })}
+        </nav>
+        <div className="px-4 py-4 flex items-center gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-medium truncate text-white">{me.profile.full_name || me.profile.email}</p>
+            <p className="text-[10px] truncate" style={{ color: '#94A3B8' }}>{me.profile.role}</p>
+          </div>
+          <button onClick={() => supabase.auth.signOut()} title="Salir" style={{ color: '#94A3B8' }}><LogOut className="w-4 h-4" /></button>
+        </div>
+      </aside>
+
+      {/* Barra superior (celular) */}
+      <header className="md:hidden sticky top-0 z-30 px-4 h-12 flex items-center justify-between no-print" style={{ background: 'white', borderBottom: `1px solid ${C.border}` }}>
+        <span className="text-[18px] font-extrabold tracking-tight" style={{ color: C.ink }}>Shine<span style={{ color: '#EA580C' }}>UP</span> <span className="text-[10px] font-semibold uppercase align-middle" style={{ color: C.muted, letterSpacing: '0.2em' }}>Laundry</span></span>
+        <button onClick={() => supabase.auth.signOut()} style={{ color: C.slate }}><LogOut className="w-[18px] h-[18px]" /></button>
       </header>
-      <main className="p-4 max-w-2xl mx-auto">
-        {!board && tab !== 'etq' && tab !== 'kpi' && tab !== 'inc' ? <div className="flex justify-center py-10"><Spinner size={28} /></div> : (
-          <>
-            {tab === 'cola' && board && <BoardPage board={board} onOpen={b => setSel({ bag: b, unit: null })} />}
-            {tab === 'scan' && board && <ScanPage bags={board.bags} onFound={(b, u) => setSel({ bag: b, unit: u })} onMsg={toast.show} />}
-            {tab === 'inv' && board && <InventoryPage board={board} onOpen={b => setSel({ bag: b, unit: null })} />}
-            {tab === 'inc' && <IncidentsPage me={me} cfg={cfg} onMsg={toast.show} />}
-            {tab === 'kpi' && <KpiPage onMsg={toast.show} />}
-            {tab === 'etq' && <LabelsPage onMsg={toast.show} />}
-          </>
-        )}
-        {tab === 'cola' && board && <p className="text-center text-[10px] mt-4" style={{ color: C.muted }}>Actualizado {board.today} · {board.debug.ms} ms</p>}
-      </main>
-      <nav className="fixed bottom-0 inset-x-0 z-40 grid no-print" style={{ background: 'white', borderTop: `1px solid ${C.border}`, gridTemplateColumns: `repeat(${tabs.filter(t => t.show).length}, 1fr)` }}>
-        {tabs.filter(t => t.show).map(t => (
+
+      <div className="md:pl-[232px]">
+        <main className="p-4 md:px-8 md:py-8 max-w-3xl md:max-w-4xl mx-auto">
+          <div className="hidden md:block mb-6 no-print">
+            <h1 className="text-[24px] font-semibold tracking-tight" style={{ color: C.ink }}>{current.label}</h1>
+            <p className="text-[13px] mt-0.5" style={{ color: C.muted }}>{dateTxt}</p>
+          </div>
+          {!board && tab !== 'etq' && tab !== 'kpi' && tab !== 'inc' ? <div className="flex justify-center py-10"><Spinner size={28} /></div> : (
+            <>
+              {tab === 'cola' && board && <BoardPage board={board} onOpen={b => setSel({ bag: b, unit: null })} />}
+              {tab === 'scan' && board && <ScanPage bags={board.bags} onFound={(b, u) => setSel({ bag: b, unit: u })} onMsg={toast.show} />}
+              {tab === 'inv' && board && <InventoryPage board={board} onOpen={b => setSel({ bag: b, unit: null })} />}
+              {tab === 'inc' && <IncidentsPage me={me} cfg={cfg} onMsg={toast.show} />}
+              {tab === 'kpi' && <KpiPage onMsg={toast.show} />}
+              {tab === 'etq' && <LabelsPage onMsg={toast.show} />}
+            </>
+          )}
+          {tab === 'cola' && board && <p className="text-center text-[10px] mt-4" style={{ color: C.muted }}>Actualizado {board.today} · {board.debug.ms} ms</p>}
+        </main>
+      </div>
+
+      {/* Barra inferior (celular) */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 grid no-print" style={{ background: 'white', borderTop: `1px solid ${C.border}`, gridTemplateColumns: `repeat(${visible.length}, 1fr)` }}>
+        {visible.map(t => (
           <button key={t.k} onClick={() => setTab(t.k)} className="py-2.5 flex flex-col items-center gap-0.5 text-[10px] font-medium" style={{ color: tab === t.k ? C.tealDark : C.muted }}>{t.icon}{t.label}</button>
         ))}
       </nav>
