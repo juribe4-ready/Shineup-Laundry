@@ -29,7 +29,11 @@ export interface Bag {
   state: State | null; standard: Counts; lastCycleId: string | null
 }
 
+export interface InvRow { item: string; par: number; home: number; bag: number; laundry: number; missing: number }
+export interface Inventory { rows: InvRow[]; totals: { par: number; home: number; bag: number; laundry: number; missing: number }; known: boolean }
+
 export interface BoardBag extends Bag {
+  inventory: Inventory
   cycle: Cycle | null
   daysDirty: number | null; dirtyLevel: Level
   nextCleaning: { id: string; date: string; propertyId: string; propertyName: string } | null
@@ -44,7 +48,7 @@ export interface LaundryConfig {
 
 export interface Board {
   today: string; config: LaundryConfig; bags: BoardBag[]
-  summary: { counts: Record<string, number>; atRisk: number; atRisk48h: number; dirtyOverLimit: number; openIncidents: number; withoutCode: number }
+  summary: { counts: Record<string, number>; atRisk: number; atRisk48h: number; dirtyOverLimit: number; openIncidents: number; withoutCode: number; missingPieces: number; bagsWithMissing: number }
   debug: { items: string[]; fromTars: string[]; bagCount: number; cyclesLoaded: number; incidentsOpen: number; upcomingProps: number; warnings: string[]; ms: number }
 }
 
