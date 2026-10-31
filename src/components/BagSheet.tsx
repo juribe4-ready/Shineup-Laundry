@@ -26,6 +26,8 @@ const expectedOf = (bag: BoardBag): Counts => {
 export default function BagSheet({ bag, items, unit, canOperate, onClose, onChanged, onError }: Props) {
   const [mode, setMode] = useState<Mode>('info')
   const [incidents, setIncidents] = useState<Incident[] | null>(null)
+  const [liveCyc, setLiveCyc] = useState<BoardBag['cycle'] | null>(null)
+  const [cycErr, setCycErr] = useState('')
 
   useEffect(() => {
     apiGet<{ incidents: Incident[] }>('incidents', { status: 'open' })
@@ -33,9 +35,20 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
       .catch(() => setIncidents([]))
   }, [bag.id])
 
-  const cyc = bag.cycle
+  // Si el tablero no trajo el ciclo de esta maleta, se lee directo (antes los botones de lavado no hacían nada)
+  useEffect(() => {
+    if (bag.cycle) return
+    apiGet<{ cycle: BoardBag['cycle'] | null }>('cycle', { id: bag.id }).then(d => { if (d.cycle) setLiveCyc(d.cycle); else setCycErr('Esta maleta no tiene ciclo registrado en Airtable (campo Last Cycle vacío).') }).catch(e => setCycErr(e.message || 'No se pudo leer el ciclo'))
+  }, [bag.id])
+  const cyc = bag.cycle || liveCyc
+  if (!bag.cycle && liveCyc) bag = { ...bag, cycle: liveCyc }
   const title = `${bag.codeLabel || bag.code || '(sin código)'} · ${bag.name}`
 
+  if (['inspect', 'wash', 'finish'].includes(mode) && !cyc) return (
+    <Sheet title={title} onClose={() => setMode('info')} footer={<Btn ghost color={C.slate} onClick={() => setMode('info')}>Volver</Btn>}>
+      <div className="rounded-xl p-3 text-[13px]" style={{ background: '#FEF2F2', color: '#B91C1C' }}><b>No puedo abrir este paso.</b><br />{cycErr || 'Leyendo el ciclo de la maleta…'}<br /><span style={{ fontSize: 11 }}>Debug · maleta {bag.id} · estado {bag.state || '—'} · lastCycleId {String((bag as any).lastCycleId || '—')}</span></div>
+    </Sheet>
+  )
   if (mode === 'inspect' && cyc) return <InspectForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'wash' && cyc) return <WashStartForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'finish' && cyc) return <FinishForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
@@ -278,14 +291,15 @@ function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
   const [note, setNote] = useState('')
   const [photos, setPhotos] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
   const lost = Object.keys(base).filter(k => (counts[k] ?? 0) < (base[k] - (discarded[k] || 0)))
   const go = async () => {
-    setBusy(true)
+    setBusy(true); setErr('')
     try {
       const r = await apiPost<{ incidentsCreated: number; suggestClose?: { id: string; item: string; type: string; qty: number | null }[] }>('finishWash', { cycleId: cyc.id, counts, discarded, added, rewash, note, photos })
       if (r.suggestClose && r.suggestClose.length) { setSuggest(r.suggestClose); return }
       onDone(r.incidentsCreated ? `Clean ✓ (se creó ${r.incidentsCreated} incidente por faltante)` : 'Maleta Clean ✓')
-    } catch (e: any) { onError(e.message) } finally { setBusy(false) }
+    } catch (e: any) { setErr(e.message || 'Error al marcar Clean'); onError(e.message) } finally { setBusy(false) }
   }
   const closeAll = async () => {
     setBusy(true)
@@ -304,6 +318,7 @@ function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
   return (
     <Sheet title={`Terminar · ${bag.code || bag.name}`} onClose={onClose}
       footer={<Btn color={C.green} disabled={busy} onClick={go}><PackageCheck className="w-4 h-4" /> Marcar Clean{lost.length ? ` (${lost.length} con faltante)` : ''}</Btn>}>
+      {err && <div className="rounded-xl p-3 text-[13px]" style={{ background: '#FEF2F2', color: '#B91C1C' }}><b>No se pudo marcar Clean:</b> {err}<br /><span style={{ fontSize: 11 }}>Debug · ciclo {cyc.id} · estado del ciclo {cyc.state || '—'}</span></div>}
       <p className="text-[12px] px-1" style={{ color: C.slate }}>Cuenta lo que sale. Viene precargado con lo que entró; cambia solo lo que difiera. Si agregas piezas nuevas (reposición) ponlas en «Nuevas +», no en el conteo. Si retiraste una pieza por daño o mancha, márcala como retirada.</p>
       {Object.keys(base).map(it => {
         const lostHere = (counts[it] ?? 0) < base[it] - (discarded[it] || 0)
