@@ -285,7 +285,7 @@ function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
   const base: Counts = cyc.counted?.counts || cyc.counted?.expected || bag.standard
   const [counts, setCounts] = useState<Counts>({ ...base })
   const [discarded, setDiscarded] = useState<Counts>({})
-  const [added, setAdded] = useState<Counts>({})
+  const [added] = useState<Counts>({})
   const [suggest, setSuggest] = useState<{ id: string; item: string; type: string; qty: number | null }[] | null>(null)
   const [rewash, setRewash] = useState(false)
   const [note, setNote] = useState('')
@@ -296,7 +296,7 @@ function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
   const go = async () => {
     setBusy(true); setErr('')
     try {
-      const r = await apiPost<{ incidentsCreated: number; suggestClose?: { id: string; item: string; type: string; qty: number | null }[] }>('finishWash', { cycleId: cyc.id, counts, discarded, added, rewash, note, photos })
+      const r = await apiPost<{ incidentsCreated: number; suggestClose?: { id: string; item: string; type: string; qty: number | null }[] }>('finishWash', { cycleId: cyc.id, bagId: bag.id, counts, discarded, added, rewash, note, photos })
       if (r.suggestClose && r.suggestClose.length) { setSuggest(r.suggestClose); return }
       onDone(r.incidentsCreated ? `Clean ✓ (se creó ${r.incidentsCreated} incidente por faltante)` : 'Maleta Clean ✓')
     } catch (e: any) { setErr(e.message || 'Error al marcar Clean'); onError(e.message) } finally { setBusy(false) }
@@ -319,7 +319,7 @@ function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
     <Sheet title={`Terminar · ${bag.code || bag.name}`} onClose={onClose}
       footer={<Btn color={C.green} disabled={busy} onClick={go}><PackageCheck className="w-4 h-4" /> Marcar Clean{lost.length ? ` (${lost.length} con faltante)` : ''}</Btn>}>
       {err && <div className="rounded-xl p-3 text-[13px]" style={{ background: '#FEF2F2', color: '#B91C1C' }}><b>No se pudo marcar Clean:</b> {err}<br /><span style={{ fontSize: 11 }}>Debug · ciclo {cyc.id} · estado del ciclo {cyc.state || '—'}</span></div>}
-      <p className="text-[12px] px-1" style={{ color: C.slate }}>Cuenta lo que sale. Viene precargado con lo que entró; cambia solo lo que difiera. Si agregas piezas nuevas (reposición) ponlas en «Nuevas +», no en el conteo. Si retiraste una pieza por daño o mancha, márcala como retirada.</p>
+      <p className="text-[12px] px-1" style={{ color: C.slate }}>Cuenta lo que sale. Viene precargado con lo que entró; cambia solo lo que difiera. Si retiraste una pieza por daño o mancha, márcala como retirada.</p>
       {Object.keys(base).map(it => {
         const lostHere = (counts[it] ?? 0) < base[it] - (discarded[it] || 0)
         return (
@@ -332,10 +332,6 @@ function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
               </button>
             </div>
             <Stepper value={counts[it] ?? 0} onChange={n => setCounts(c => ({ ...c, [it]: n }))} />
-            <div className="ml-3 text-center">
-              <p className="text-[9px] font-medium uppercase" style={{ color: C.muted }}>Nuevas +</p>
-              <Stepper value={added[it] || 0} onChange={n => setAdded(a => ({ ...a, [it]: n }))} color={C.green} />
-            </div>
           </div>
         )
       })}
