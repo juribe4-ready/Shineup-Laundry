@@ -26,8 +26,7 @@ const expectedOf = (bag: BoardBag): Counts => {
 export default function BagSheet({ bag, items, unit, canOperate, onClose, onChanged, onError }: Props) {
   const [mode, setMode] = useState<Mode>('info')
   const [incidents, setIncidents] = useState<Incident[] | null>(null)
-  const [liveCyc, setLiveCyc] = useState<BoardBag['cycle'] | null>(null)
-  const [cycErr, setCycErr] = useState('')
+  const [noCycBusy, setNoCycBusy] = useState(false)
 
   useEffect(() => {
     apiGet<{ incidents: Incident[] }>('incidents', { status: 'open' })
@@ -35,18 +34,23 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
       .catch(() => setIncidents([]))
   }, [bag.id])
 
-  // Si el tablero no trajo el ciclo de esta maleta, se lee directo (antes los botones de lavado no hacían nada)
-  useEffect(() => {
-    if (bag.cycle) return
-    apiGet<{ cycle: BoardBag['cycle'] | null }>('cycle', { id: bag.id }).then(d => { if (d.cycle) setLiveCyc(d.cycle); else setCycErr('Esta maleta no tiene ciclo registrado en Airtable (campo Last Cycle vacío).') }).catch(e => setCycErr(e.message || 'No se pudo leer el ciclo'))
-  }, [bag.id])
-  const cyc = bag.cycle || liveCyc
-  if (!bag.cycle && liveCyc) bag = { ...bag, cycle: liveCyc }
+  const cyc = bag.cycle
   const title = `${bag.codeLabel || bag.code || '(sin código)'} · ${bag.name}`
 
   if (['inspect', 'wash', 'finish'].includes(mode) && !cyc) return (
-    <Sheet title={title} onClose={() => setMode('info')} footer={<Btn ghost color={C.slate} onClick={() => setMode('info')}>Volver</Btn>}>
-      <div className="rounded-xl p-3 text-[13px]" style={{ background: '#FEF2F2', color: '#B91C1C' }}><b>No puedo abrir este paso.</b><br />{cycErr || 'Leyendo el ciclo de la maleta…'}<br /><span style={{ fontSize: 11 }}>Debug · maleta {bag.id} · estado {bag.state || '—'} · lastCycleId {String((bag as any).lastCycleId || '—')}</span></div>
+    <Sheet title={title} onClose={() => setMode('info')}
+      footer={<>
+        {bag.state === 'Washing' && <Btn color={C.green} disabled={noCycBusy} onClick={async () => {
+          if (!window.confirm(`¿Marcar ${bag.name} como Clean sin ciclo? Solo cambia el estado de la maleta a Clean.`)) return
+          setNoCycBusy(true)
+          try { await apiPost('finishWash', { bagId: bag.id }); onChanged('Maleta Clean ✓ (sin ciclo)') } catch (e: any) { onError(e.message) } finally { setNoCycBusy(false) }
+        }}>Marcar Clean igual (solo la maleta)</Btn>}
+        <Btn ghost color={C.slate} onClick={() => setMode('info')}>Volver</Btn>
+      </>}>
+      <div className="rounded-xl p-3 text-[13px]" style={{ background: '#FEF2F2', color: '#B91C1C' }}>
+        <b>Esta maleta no tiene un ciclo vinculado.</b><br />Su campo «Ultimo ciclo» está vacío en Laundry Bags (suele pasar con registros de prueba hechos a mano), por eso no hay ciclo que terminar.<br />
+        <span style={{ fontSize: 11 }}>Debug · maleta {bag.id} · estado {bag.state || '—'} · lastCycleId {String((bag as any).lastCycleId || '—')}</span>
+      </div>
     </Sheet>
   )
   if (mode === 'inspect' && cyc) return <InspectForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
