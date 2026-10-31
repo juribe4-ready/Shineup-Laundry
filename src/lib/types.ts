@@ -12,7 +12,7 @@ export interface Cycle {
   condition: 'Bueno' | 'Normal' | 'Malo'; tags: string[]; short: ShortItem[]; sendAll: boolean
   cleanerNote: string; unitsSeen: string
   inspectedAt: string | null; inspectedBy: string | null
-  unitsOut: number[]; unitsRcv: number[]; unitsBack: { unit: number; status: 'dirty' | 'clean' | 'stay' }[]; stayedUnits: number
+  unitsOut: number[]; unitsRcv: number[]; unitsBack: { unit: number; status: 'dirty' | 'clean' | 'stay'; place?: string | null }[]; stayedUnits: number
   bagsOut: number | null; bagsBack: number | null
   counted: { expected: Counts; counts: Counts; damaged: Counts; stained: Counts } | null
   endorsement: string | null; special: boolean
