@@ -407,8 +407,9 @@ export async function actFinishWash({ profile, body }) {
   const ctx = await loadBags()
   const rec = await getRecord(T.cycles, body.cycleId)
   const cyc = normalizeCycle(rec, ctx.maps.staffMap)
-  if (cyc.state !== 'Washing') throw new HttpError(409, `Este ciclo está en "${cyc.state || 'sin estado'}", no Washing`)
-  const bag = needBag(ctx, cyc.bagId)
+  const bag = needBag(ctx, cyc.bagId || body.bagId)
+  // Ciclo sin estado (registro creado/editado a mano en Airtable) pero la maleta SÍ está en Washing: se deja terminar y el ciclo queda coherente.
+  if (cyc.state !== 'Washing' && !(!cyc.state && bag.state === 'Washing')) throw new HttpError(409, `Este ciclo está en "${cyc.state || 'sin estado'}", no Washing`)
   const afterInspection = cyc.counted?.counts || cyc.counted?.expected || bag.standard
   const discarded = cleanCounts(body.discarded, ctx.items)
   const expectedFinal = {}
@@ -430,6 +431,7 @@ export async function actFinishWash({ profile, body }) {
     [FC.log]: logAppend(rec.fields?.[FC.log], { at, by: staffName(ctx, profile), stage: 'Clean', note: [String(body.note || '').slice(0, 1000), Object.keys(added).length ? `Piezas nuevas agregadas: ${Object.entries(added).map(([k, n]) => `${k} +${n}`).join(', ')}` : ''].filter(Boolean).join(' | '), photos: cleanPhotos(body.photos) }),
   }
   if (staffId) patch[FC.packedBy] = [staffId]
+  if (!cyc.bagId) patch[FC.bag] = [bag.id]
   const upd = await updateRecord(T.cycles, cyc.id, patch)
   await updateRecord(T.bags, bag.id, { [FB.state]: 'Clean' })
   // incidentes abiertos de este conjunto cuyo ítem se repuso: se sugiere cerrarlos con «Reemplazado» (no se cierran solos)
