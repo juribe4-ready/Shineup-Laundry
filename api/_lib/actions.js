@@ -405,6 +405,13 @@ export async function actStartWash({ profile, body }) {
 
 export async function actFinishWash({ profile, body }) {
   const ctx = await loadBags()
+  // Maleta sin ciclo vinculado (registro de prueba): solo se pasa la maleta a Clean
+  if (!body.cycleId) {
+    const b0 = needBag(ctx, body.bagId)
+    if (b0.state !== 'Washing') throw new HttpError(409, `La maleta está en "${b0.state || 'sin estado'}", no Washing`)
+    await updateRecord(T.bags, b0.id, { [FB.state]: 'Clean' })
+    return { ok: true, incidentsCreated: 0, noCycle: true }
+  }
   const rec = await getRecord(T.cycles, body.cycleId)
   const cyc = normalizeCycle(rec, ctx.maps.staffMap)
   const bag = needBag(ctx, cyc.bagId || body.bagId)
