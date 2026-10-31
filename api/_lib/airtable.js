@@ -21,7 +21,22 @@ async function call(path, { method = 'GET', body } = {}) {
   try { data = JSON.parse(text) } catch { data = { raw: text } }
   if (!r.ok) {
     const msg = data?.error?.message || data?.error?.type || (typeof data?.error === 'string' ? data.error : '') || text.slice(0, 200)
-    throw new AirtableError(`Airtable ${r.status} en ${decodeURIComponent(path.split('?')[0])}: ${msg}`, r.status, data)
+    let extra = ''
+    // Diagnóstico visible: si Airtable dice «Unknown field name», se listan los campos que SÍ existen (los que traen datos) y los enviados.
+    if (r.status === 422 && /Unknown field name/i.test(msg) && body?.fields) {
+      try {
+        const tbl = path.split('?')[0].split('/')[0]
+        const rr = await fetch(`${API}/${BASE}/${tbl}?pageSize=100`, { headers: { Authorization: `Bearer ${TOKEN}` } })
+        const dd = await rr.json()
+        const keys = [...new Set((dd.records || []).flatMap(x => Object.keys(x.fields || {})))]
+        const show = (k) => JSON.stringify(k)
+        let own = ''
+        const rid = path.split('?')[0].split('/')[1]
+        if (rid) { try { const o = await (await fetch(`${API}/${BASE}/${tbl}/${rid}`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json(); own = ` | Campos de este registro: ${Object.keys(o.fields || {}).map(show).join(', ')}` } catch { /* */ } }
+        extra = own + ` | Enviados: ${Object.keys(body.fields).map(show).join(', ')} | Existentes en la tabla: ${keys.map(show).join(', ')}`
+      } catch { /* sin diagnóstico */ }
+    }
+    throw new AirtableError(`Airtable ${r.status} en ${decodeURIComponent(path.split('?')[0])}: ${msg}${extra}`, r.status, data)
   }
   return data
 }
