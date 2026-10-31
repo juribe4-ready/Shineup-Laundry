@@ -27,7 +27,7 @@ export async function authenticate(req) {
 // • "laundry": quienes operan la lavandería → laundry_access = true, o admin/manager
 // • "field": cleaners en Ops (escanear, declarar devolución, reportar problema)
 // • "admin": admin/manager (etiquetas, configuración)
-const FIELD_ACTIONS = new Set(['bag', 'bagsByProperty', 'declareReturn', 'markInUse', 'loadShift', 'undoLoad', 'reportBagIncident', 'me'])
+const FIELD_ACTIONS = new Set(['bag', 'bagsByProperty', 'declareReturn', 'markInUse', 'loadShift', 'undoLoad', 'reportBagIncident', 'refrendo', 'me'])
 const LAUNDRY_ACTIONS = new Set(['board', 'cycle', 'inspect', 'receive', 'startWash', 'finishWash', 'incidents', 'updateIncident', 'kpis', 'config', 'staff'])
 const ADMIN_ACTIONS = new Set(['labels', 'assignCodes'])
 

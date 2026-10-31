@@ -122,11 +122,12 @@ export function parseUnits(txt) {
   const rcvPart = rest.find(x => x.trim().startsWith('rcv:'))
   const rcv = rcvPart ? rcvPart.trim().slice(4).split(',').map(Number).filter(n => n > 0) : []
   if (t.startsWith('out:')) return { out: t.slice(4).split(',').map(Number).filter(n => n > 0), back: [], rcv }
-  const back = t.split(',').map(p => p.split('=')).filter(p => p.length === 2 && Number(p[0]) > 0).map(([u, s]) => ({ unit: Number(u), status: s }))
+  // «1=dirty», «1=stay» o «1=dirty@bodega» (dónde la deja el cleaner: bodega | lavanderia)
+  const back = t.split(',').map(p => p.split('=')).filter(p => p.length === 2 && Number(p[0]) > 0).map(([u, s]) => { const [status, place] = String(s).split('@'); return { unit: Number(u), status, place: place || null } })
   return { out: [], back, rcv }
 }
 export function unitsText({ out = [], back = [], rcv = [] }) {
-  const main = out.length && !back.length ? `out:${out.join(',')}` : back.map(u => `${u.unit}=${u.status}`).join(',')
+  const main = out.length && !back.length ? `out:${out.join(',')}` : back.map(u => `${u.unit}=${u.status}${u.place ? '@' + u.place : ''}`).join(',')
   return rcv.length ? `${main};rcv:${[...new Set(rcv)].sort((a, b) => a - b).join(',')}` : main
 }
 
@@ -322,7 +323,7 @@ export function unitsOf(bag, cycle, cfg, now = Date.now()) {
       if (b?.status === 'stay') { where = 'casa'; label = 'Se quedó en la casa'; since = cycle.dirtyAt }
       else if (b) {
         const received = st !== 'Dirty' || rcv.includes(n)
-        if (!received) { where = 'transito'; label = 'En tránsito (sin confirmar)'; since = cycle.dirtyAt }
+        if (!received) { where = 'transito'; label = b.place === 'bodega' ? 'En bodega ShineUp (sin confirmar en lavandería)' : b.place === 'lavanderia' ? 'Entregada en lavandería (por confirmar)' : 'En tránsito (sin confirmar)'; since = cycle.dirtyAt }
         else { where = 'lavanderia'; label = st === 'Washing' ? 'Lavando' : st === 'Inspected' ? 'En lavandería (inspeccionada)' : 'Recibida en lavandería'; since = null }
       } else if (out.includes(n)) { where = 'cleaner'; label = 'Sin declarar (con el cleaner)'; since = cycle.loadedAt || cycle.dirtyAt }
     } else if (st === 'Clean') {

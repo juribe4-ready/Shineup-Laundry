@@ -193,7 +193,8 @@ export async function actDeclareReturn({ profile, body }) {
   const given = Array.isArray(body.units) ? body.units : []
   const units = allUnits.map(u => {
     const g = given.find(x => Number(x.unit) === u)
-    return { unit: u, status: ['dirty', 'clean', 'stay'].includes(g?.status) ? g.status : 'dirty' }
+    const status = ['dirty', 'clean', 'stay'].includes(g?.status) ? g.status : 'dirty'
+    return { unit: u, status, place: status === 'dirty' && ['bodega', 'lavanderia'].includes(g?.place) ? g.place : null }
   })
   const unitsBack = units.filter(u => u.status !== 'stay').length
   const condition = CONDITIONS.includes(body.condition) ? body.condition : 'Normal'
@@ -212,7 +213,7 @@ export async function actDeclareReturn({ profile, body }) {
     [FC.sendAll]: short.length === 0 && allDirty,
     [FC.special]: condition === 'Malo',
     [FC.bagsBack]: unitsBack,
-    [FC.unitsSeen]: units.map(u => `${u.unit}=${u.status}`).join(','),
+    [FC.unitsSeen]: units.map(u => `${u.unit}=${u.status}${u.place ? '@' + u.place : ''}`).join(','),
     [FC.log]: JSON.stringify([{ at, by: staffName(ctx, profile), stage: 'Declaración', note, photos }]),
   }
   if (prevOut != null) fields[FC.bagsOut] = prevOut
@@ -316,6 +317,38 @@ export async function actLoadShift({ profile, body }) {
     loaded.push({ bagId: bag.id, code: bag.code, name: bag.name, state: warning ? st : 'In Use', units: list, warning })
   }
   return { ok: true, loaded, unknown }
+}
+
+
+// Refrendo del cleaner (durante la limpieza): cuenta lo que trae la maleta contra lo que dice lavandería.
+// Cada diferencia o pieza sucia se registra como incidente (etapa «En propiedad») y queda en la bitácora del ciclo.
+export async function actRefrendo({ profile, body }) {
+  const ctx = await loadBags()
+  const bag = needBag(ctx, body.bagId)
+  const rec = await currentCycleRecord(bag)
+  const cyc = rec ? normalizeCycle(rec, ctx.maps.staffMap) : null
+  const fc = cyc?.finalContent?.counts
+  const expected = fc && Object.keys(fc).length ? fc : (bag.standard || {})
+  const found = cleanCounts(body.counts, ctx.items)
+  const dirty = Object.entries(cleanCounts(body.dirty, ctx.items)).filter(([, n]) => n > 0)
+  const staffId = profile.staff_airtable_id || null
+  const propertyId = await propertyOfCleaning(body.cleaningId)
+  const comment = String(body.note || '').slice(0, 800)
+  const base = { bag, cycleId: cyc?.id || null, propertyId, cleaningId: body.cleaningId, staffId, stage: 'En propiedad', photos: body.photos, byName: staffName(ctx, profile) }
+  const made = []
+  const lines = []
+  for (const it of Object.keys(found)) {
+    const exp = expected[it] || 0, diff = found[it] - exp
+    if (diff < 0) { made.push(await createLaundryIncident(ctx, { ...base, type: 'Faltante', item: it, qty: -diff, comment: `No vino completo: dice ${exp}, encontré ${found[it]}. ${comment}`.trim() })); lines.push(`${it} −${-diff}`) }
+    else if (diff > 0) { made.push(await createLaundryIncident(ctx, { ...base, type: 'Sobrante', item: it, qty: diff, comment: `Vino de más: dice ${exp}, encontré ${found[it]}. ${comment}`.trim() })); lines.push(`${it} +${diff}`) }
+  }
+  for (const [it, n] of dirty) { made.push(await createLaundryIncident(ctx, { ...base, type: 'Sucio / Manchado', item: it, qty: n, comment: `Vino sucio/manchado. ${comment}`.trim() })); lines.push(`${it} sucio ×${n}`) }
+  if (rec) {
+    try {
+      await updateRecord(T.cycles, rec.id, { [FC.log]: logAppend(rec.fields?.[FC.log], { at: nowISO(), by: staffName(ctx, profile), stage: 'Refrendo cleaner', note: lines.length ? `Diferencias: ${lines.join(', ')}${comment ? ' | ' + comment : ''}` : `Todo coincide${comment ? ' | ' + comment : ''}`, photos: cleanPhotos(body.photos) }) })
+    } catch { /* la bitácora es secundaria */ }
+  }
+  return { ok: true, incidentsCreated: made.length, matches: lines.length === 0 }
 }
 
 export async function actReportBagIncident({ profile, body }) {
