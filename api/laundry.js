@@ -29,6 +29,7 @@ const WRITES = {
   loadShift: A.actLoadShift,
   undoLoad: A.actUndoLoad,
   reportBagIncident: A.actReportBagIncident,
+  refrendo: A.actRefrendo,
   inspect: A.actInspect,
   receive: A.actReceive,
   startWash: A.actStartWash,
