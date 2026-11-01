@@ -9,7 +9,7 @@ interface Plan { id: string; name: string; old: string | null; code: string; cod
 // Tamaños en mm (ancho × alto). Tag = 6.2 × 2.3 in (horizontal). Tarjeta = tarjeta de presentación.
 // Plantilla fija: QR a la izquierda · zona del NOMBRE (ocupa todo el espacio libre) · pie con código + maleta.
 const SIZES = {
-  tag: { label: 'Tag 6.2 × 2.3 in', w: 157.5, h: 58.4, nameMax: 66, nameMin: 20, code: 19, badge: 13, footRow: true },
+  tag: { label: 'Tag (ajustable)', w: 157.5, h: 58.4, nameMax: 66, nameMin: 20, code: 19, badge: 13, footRow: true },
   card: { label: 'Tarjeta 89 × 51 mm', w: 89, h: 51, nameMax: 34, nameMin: 11, code: 10.5, badge: 8, footRow: false },
 } as const
 type SizeKey = keyof typeof SIZES
@@ -48,6 +48,9 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const [qrs, setQrs] = useState<Record<string, string>>({})
   const [size, setSize] = useState<SizeKey>('tag')
   const [q, setQ] = useState('')
+  // Medidas del tag en pulgadas (ajustables; se recuerdan). Por defecto 6.0 × 2.1 in: cabe en el porta-tarjeta (interior 6.1 × 2.4 in) con holgura.
+  const [tagIn, setTagIn] = useState<{ w: string; h: string }>(() => { try { const v = JSON.parse(localStorage.getItem('laundry-tag-in') || 'null'); if (v?.w && v?.h) return v } catch { /* sin almacenamiento */ } return { w: '6', h: '2.1' } })
+  useEffect(() => { try { localStorage.setItem('laundry-tag-in', JSON.stringify(tagIn)) } catch { /* ok */ } }, [tagIn])
   const [order, setOrder] = useState<'client' | 'house' | 'code'>(() => { try { return (localStorage.getItem('laundry-labels-order') as any) || 'client' } catch { return 'client' } })
   useEffect(() => { try { localStorage.setItem('laundry-labels-order', order) } catch { /* ok */ } }, [order])
   const [busy, setBusy] = useState(false)
@@ -95,7 +98,13 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   if (!bags) return <div className="flex justify-center py-8"><Spinner /></div>
   const missing = bags.filter(b => !b.code).length
   const withCode = bags.length - missing
-  const S = SIZES[size]
+  const clampIn = (v: string, lo: number, hi: number, dflt: number) => { const n = parseFloat(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt }
+  const S = (() => {
+    if (size !== 'tag') return SIZES[size]
+    const wIn = clampIn(tagIn.w, 2, 7.5, 6), hIn = clampIn(tagIn.h, 1, 4, 2.1)
+    const k = (hIn * 25.4) / SIZES.tag.h // las letras escalan con el alto
+    return { ...SIZES.tag, w: wIn * 25.4, h: hIn * 25.4, nameMax: SIZES.tag.nameMax * k, nameMin: Math.max(8, SIZES.tag.nameMin * k), code: SIZES.tag.code * k, badge: SIZES.tag.badge * k }
+  })()
   const pad = S.h > 55 ? 3 : 2.5, gap = 3, qrSide = S.h - pad * 2
   const textW = S.w - pad * 2 - qrSide - gap
   const footH = S.footRow ? Math.max(S.code, S.badge) * PT * 1.5 + 3 : (S.code + S.badge) * PT * 1.45 + 4 // alto fijo del pie
@@ -138,6 +147,17 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
                 style={{ background: size === k ? C.ink : 'white', color: size === k ? 'white' : C.slate, border: `1px solid ${size === k ? C.ink : C.border}` }}>{SIZES[k].label}</button>
             ))}
           </div>
+          {size === 'tag' && (
+            <div className="flex flex-wrap items-center gap-2 text-[12px]" style={{ color: C.slate }}>
+              <span>Medida de la etiqueta:</span>
+              <input inputMode="decimal" value={tagIn.w} onChange={e => setTagIn(t => ({ ...t, w: e.target.value }))} className="w-14 rounded-lg px-2 py-1.5 text-center font-bold" style={{ border: `1px solid ${C.border}`, color: C.ink }} />
+              <span>in largo ×</span>
+              <input inputMode="decimal" value={tagIn.h} onChange={e => setTagIn(t => ({ ...t, h: e.target.value }))} className="w-14 rounded-lg px-2 py-1.5 text-center font-bold" style={{ border: `1px solid ${C.border}`, color: C.ink }} />
+              <span>in alto</span>
+              <button onClick={() => setTagIn({ w: '6', h: '2.1' })} className="px-2 py-1.5 rounded-lg font-medium" style={{ border: `1px solid ${C.border}` }}>Restablecer 6 × 2.1</button>
+              <p className="w-full text-[11px]" style={{ color: C.muted }}>Porta-tarjeta: exterior 7.4 × 2.5 in, interior 6.1 × 2.4 in. Imprime con escala <b>100 %</b> (no «Ajustar a la página») y prueba primero con 1 etiqueta.</p>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[12px]" style={{ color: C.slate }}>Ordenar por</span>
             {([['client', 'Cliente'], ['house', 'Casa'], ['code', 'Código']] as const).map(([k, t]) => (
