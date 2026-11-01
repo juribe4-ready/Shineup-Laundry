@@ -48,9 +48,9 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const [qrs, setQrs] = useState<Record<string, string>>({})
   const [size, setSize] = useState<SizeKey>('tag')
   const [q, setQ] = useState('')
-  // Medidas del tag en pulgadas (ajustables; se recuerdan). Por defecto 6.0 × 2.1 in: cabe en el porta-tarjeta (interior 6.1 × 2.4 in) con holgura.
-  const [tagIn, setTagIn] = useState<{ w: string; h: string }>(() => { try { const v = JSON.parse(localStorage.getItem('laundry-tag-in') || 'null'); if (v?.w && v?.h) return v } catch { /* sin almacenamiento */ } return { w: '6', h: '2.1' } })
-  useEffect(() => { try { localStorage.setItem('laundry-tag-in', JSON.stringify(tagIn)) } catch { /* ok */ } }, [tagIn])
+  // Medidas del tag en pulgadas (ajustables; se recuerdan). Por defecto 6.0 × 2.0 in (5 por hoja Letter): cabe en el porta-tarjeta (interior 6.1 × 2.4 in) con holgura.
+  const [tagIn, setTagIn] = useState<{ w: string; h: string }>(() => { try { const v = JSON.parse(localStorage.getItem('laundry-tag-in-v2') || 'null'); if (v?.w && v?.h) return v } catch { /* sin almacenamiento */ } return { w: '6', h: '2' } })
+  useEffect(() => { try { localStorage.setItem('laundry-tag-in-v2', JSON.stringify(tagIn)) } catch { /* ok */ } }, [tagIn])
   const [order, setOrder] = useState<'client' | 'house' | 'code'>(() => { try { return (localStorage.getItem('laundry-labels-order') as any) || 'client' } catch { return 'client' } })
   useEffect(() => { try { localStorage.setItem('laundry-labels-order', order) } catch { /* ok */ } }, [order])
   const [busy, setBusy] = useState(false)
@@ -101,7 +101,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
   const clampIn = (v: string, lo: number, hi: number, dflt: number) => { const n = parseFloat(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt }
   const S = (() => {
     if (size !== 'tag') return SIZES[size]
-    const wIn = clampIn(tagIn.w, 2, 7.5, 6), hIn = clampIn(tagIn.h, 1, 4, 2.1)
+    const wIn = clampIn(tagIn.w, 2, 7.5, 6), hIn = clampIn(tagIn.h, 1, 4, 2)
     const k = (hIn * 25.4) / SIZES.tag.h // las letras escalan con el alto
     return { ...SIZES.tag, w: wIn * 25.4, h: hIn * 25.4, nameMax: SIZES.tag.nameMax * k, nameMin: Math.max(8, SIZES.tag.nameMin * k), code: SIZES.tag.code * k, badge: SIZES.tag.badge * k }
   })()
@@ -154,7 +154,7 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
               <span>in largo ×</span>
               <input inputMode="decimal" value={tagIn.h} onChange={e => setTagIn(t => ({ ...t, h: e.target.value }))} className="w-14 rounded-lg px-2 py-1.5 text-center font-bold" style={{ border: `1px solid ${C.border}`, color: C.ink }} />
               <span>in alto</span>
-              <button onClick={() => setTagIn({ w: '6', h: '2.1' })} className="px-2 py-1.5 rounded-lg font-medium" style={{ border: `1px solid ${C.border}` }}>Restablecer 6 × 2.1</button>
+              <button onClick={() => setTagIn({ w: '6', h: '2' })} className="px-2 py-1.5 rounded-lg font-medium" style={{ border: `1px solid ${C.border}` }}>Restablecer 6 × 2.0</button>
               <p className="w-full text-[11px]" style={{ color: C.muted }}>Porta-tarjeta: exterior 7.4 × 2.5 in, interior 6.1 × 2.4 in. Imprime con escala <b>100 %</b> (no «Ajustar a la página») y prueba primero con 1 etiqueta.</p>
             </div>
           )}
