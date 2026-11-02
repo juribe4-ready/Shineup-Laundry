@@ -15,7 +15,7 @@ input, select, textarea { font-family: inherit; }
   body * { visibility: hidden !important; }
   .no-print { display: none !important; }
   #print-area, #print-area * { visibility: visible !important; }
-  #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  #print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0 !important; }
   .qr-label { break-inside: avoid; page-break-inside: avoid; }
   @page { margin: 6mm; }
 }
