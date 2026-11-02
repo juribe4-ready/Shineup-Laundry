@@ -192,11 +192,11 @@ export default function LabelsPage({ onMsg }: { onMsg: (m: string, err?: boolean
       </div>
 
       {/* mismo tamaño de letra en todas las etiquetas: el que cabe en la casa con el nombre más largo */}
-      <div id="print-area" style={{ display: 'flex', flexWrap: 'wrap', gap: '2mm' }}>
-        {labels.map(l => {
+      <div id="print-area" style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
+        {labels.map((l, idx) => {
           const house = houseName(l.bag)
           return (
-            <div key={l.code} className="qr-label" style={{ width: `${S.w}mm`, height: `${S.h}mm`, padding: `${pad}mm`, display: 'flex', alignItems: 'center', gap: `${gap}mm`, background: 'white', border: '0.25mm dashed #B6BEC9', borderRadius: '2mm', boxSizing: 'border-box', overflow: 'hidden' }}>
+            <div key={l.code} className="qr-label" style={{ width: `${S.w}mm`, height: `${S.h}mm`, padding: `${pad}mm`, display: 'flex', alignItems: 'center', gap: `${gap}mm`, background: 'white', border: '0.25mm dashed #B6BEC9', borderTop: idx === 0 ? '0.25mm dashed #B6BEC9' : 'none', borderRadius: 0, boxSizing: 'border-box', overflow: 'hidden' }}>
               {qrs[l.code] ? <img src={qrs[l.code]} alt={l.code} style={{ width: `${qrSide}mm`, height: `${qrSide}mm`, flexShrink: 0 }} /> : <div style={{ width: `${qrSide}mm`, height: `${qrSide}mm`, flexShrink: 0 }} />}
               <div style={{ minWidth: 0, flex: 1, height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, sans-serif' }}>
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center' }}>
