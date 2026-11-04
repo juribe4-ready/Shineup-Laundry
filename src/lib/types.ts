@@ -37,6 +37,7 @@ export interface UnitInfo { n: number; code: string | null; where: 'casa' | 'tra
 export interface BoardBag extends Bag {
   clientName?: string
   inventory: Inventory
+  known?: { counts: Counts; source: string; at: string | null }
   units: UnitInfo[]
   cycle: Cycle | null
   daysDirty: number | null; dirtyLevel: Level
