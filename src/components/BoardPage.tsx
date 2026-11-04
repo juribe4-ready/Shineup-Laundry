@@ -21,6 +21,21 @@ const unitRank = (b: BoardBag, u: Unit): number => {
   const st = unitStage(b, u)
   return st === 'Dirty' ? 1 : st === 'Inspected' ? 2 : st === 'Washing' ? 3 : 4
 }
+// Etiqueta corta para la tabla (el texto completo queda en el tooltip)
+const shortLabel = (l: string) => {
+  const t = l.toLowerCase()
+  if (t.includes('bodega')) return 'En bodega'
+  if (t.includes('entregada')) return 'Entregada'
+  if (t.includes('tránsito')) return 'En tránsito'
+  if (t.includes('sin declarar')) return 'Sin declarar'
+  if (t.includes('se quedó')) return 'En la casa'
+  if (t.includes('en uso')) return 'En uso'
+  if (t.includes('inspeccionada')) return 'Inspeccionada'
+  if (t.includes('lavando')) return 'Lavando'
+  if (t.includes('limpia')) return 'Limpia'
+  if (t.includes('recibida')) return 'Recibida'
+  return l
+}
 const RANK_LABEL = ['En tránsito', 'Recibida', 'Inspeccionada', 'Lavando', 'Limpia', 'En uso', 'En la casa']
 const unitsOf = (b: BoardBag) => b.units.length
   ? b.units.map(u => ({ code: u.code || `${b.code || b.name}-${u.n}`, stage: unitStage(b, u), rank: unitRank(b, u), label: u.label, days: u.days }))
@@ -59,7 +74,7 @@ type SortK = 'casa' | 'maleta' | 'prox' | 'estado' | 'sucia'
 const WHEN_OPTS = ['Hoy', 'Mañana', 'Esta semana', 'Sin limpieza']
 const whenKey = (b: BoardBag) => !b.nextCleaning ? 'Sin limpieza' : b.daysToNext === 0 ? 'Hoy' : b.daysToNext === 1 ? 'Mañana' : (b.daysToNext ?? 99) <= 7 ? 'Esta semana' : 'Más adelante'
 
-const COLS = 'md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_110px_minmax(0,1.3fr)_80px_170px] md:gap-3 md:items-center'
+const COLS = 'md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_110px_150px_100px_170px] md:gap-3 md:items-center'
 
 export default function BoardPage({ board, onOpen }: { board: Board; onOpen: (b: BoardBag, mode?: OpenMode) => void }) {
   const [stage, setStage] = useState<string | null>('Dirty')   // abre en «Por lavar»
@@ -112,7 +127,7 @@ export default function BoardPage({ board, onOpen }: { board: Board; onOpen: (b:
 
   const Th = ({ k, label, fk }: { k: SortK; label: string; fk?: string }) => (
     <span className="relative inline-flex items-center gap-1">
-      <button onClick={() => sortBy(k)} className="uppercase font-bold tracking-wide" style={{ color: sort.k === k ? C.ink : C.muted }}>{label} <span style={{ fontSize: 9 }}>{arrow(k)}</span></button>
+      <button onClick={() => sortBy(k)} className="uppercase font-bold tracking-wide whitespace-nowrap" style={{ color: sort.k === k ? C.ink : C.muted }}>{label} <span style={{ fontSize: 9 }}>{arrow(k)}</span></button>
       {fk && <button onClick={() => setPop(pop === fk ? null : fk)} title="Filtrar"><ChevronDown className="w-3.5 h-3.5" style={{ color: (fk === 'estado' && fEstado.length) || (fk === 'when' && fWhen.length) || (fk === 'dias' && fDias) ? C.teal : C.muted }} /></button>}
       {pop === fk && fk && (
         <div className="absolute left-0 top-6 z-30 rounded-xl p-2 normal-case font-medium text-[13px] tracking-normal" style={{ background: 'white', border: `1px solid ${C.border}`, boxShadow: '0 12px 28px rgba(15,23,42,.18)', minWidth: 210 }}>
@@ -219,7 +234,7 @@ function Row({ b, onOpen, stage, menu, setMenu }: { b: BoardBag; onOpen: (b: Boa
         </div>
         <p className="hidden md:block text-[13px] font-bold" style={{ color: whenColor(b) }}>{whenOf(b)}</p>
         <div className="md:space-y-1">
-          {us.map((c, i) => <div key={c.code} className="flex items-center md:h-[26px] text-[12px]" style={{ color: C.slate }}><span className="md:hidden font-mono text-[10px] mr-2" style={{ color: C.muted }}>{c.code}</span>{c.label}{i === 0 ? diffEl : null}</div>)}
+          {us.map((c, i) => <div key={c.code} title={c.label} className="flex items-center md:h-[26px] text-[12px] whitespace-nowrap overflow-hidden" style={{ color: C.slate }}><span className="md:hidden font-mono text-[10px] mr-2" style={{ color: C.muted }}>{c.code}</span><span className="truncate">{shortLabel(c.label)}</span>{i === 0 ? diffEl : null}</div>)}
         </div>
         <p className="hidden md:block text-[13px]" style={{ color: C.slate }}>{b.daysDirty != null ? `${b.daysDirty} d` : '—'}</p>
       </button>
