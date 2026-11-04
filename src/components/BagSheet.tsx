@@ -15,10 +15,10 @@ interface Props {
   onError: (msg: string) => void
 }
 
-type Mode = 'info' | 'inspect' | 'wash' | 'finish' | 'incident' | 'dirty'
+type Mode = 'info' | 'inspect' | 'wash' | 'finish' | 'incident' | 'dirty' | 'adjust'
 
 const expectedOf = (bag: BoardBag): Counts => {
-  const exp: Counts = { ...bag.standard }
+  const exp: Counts = { ...(bag.known?.counts || bag.standard) }
   for (const s of bag.cycle?.short || []) if (exp[s.item] != null) exp[s.item] = Math.max(0, exp[s.item] - s.qty)
   return exp
 }
@@ -56,6 +56,7 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
   if (mode === 'inspect' && cyc) return <InspectForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'wash' && cyc) return <WashStartForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'finish' && cyc) return <FinishForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
+  if (mode === 'adjust') return <AdjustForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'dirty') return <MarkDirtyForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'incident') return <IncidentForm bag={bag} items={items} unit={unit ?? null} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
 
@@ -82,6 +83,7 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
               catch (e: any) { onError(e.message) }
             }}>↩ Deshacer carga de turno</Btn>
           )}
+          <Btn ghost color={C.slate} onClick={() => setMode('adjust')}><ClipboardCheck className="w-4 h-4" /> Contar / ajustar contenido</Btn>
           <Btn ghost color={C.red} onClick={() => setMode('incident')}><AlertTriangle className="w-4 h-4" /> Reportar problema</Btn>
         </>
       ) : undefined}>
@@ -278,6 +280,41 @@ function MarkDirtyForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClo
         <span>Ya está en lavandería<br /><span className="font-normal text-[12px]" style={{ color: C.slate }}>Si la desmarcas queda «en tránsito (sin confirmar)».</span></span>
       </label>
       <p className="text-[12px]" style={{ color: C.muted }}>Estado actual: {bag.cycle?.state || bag.state || 'sin estado'}. Queda anotado en el historial como «Ajuste manual».</p>
+    </Sheet>
+  )
+}
+
+// ─── Contar / ajustar contenido (sin incidentes) ─────────────────────────────
+function AdjustForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose: () => void; onDone: (m: string) => void; onError: (m: string) => void }) {
+  const start: Counts = { ...bag.standard, ...(bag.known?.counts || {}) }
+  const [counts, setCounts] = useState<Counts>(start)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const send = async () => {
+    setBusy(true)
+    try { await apiPost('adjustContent', { bagId: bag.id, counts, note }); onDone('Conteo guardado ✓') }
+    catch (e: any) { onError(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <Sheet title={`Contar contenido · ${bag.code || bag.name}`} onClose={onClose}
+      footer={<>
+        <Btn color={C.teal} disabled={busy} onClick={send}>Guardar conteo</Btn>
+        <Btn ghost color={C.slate} onClick={onClose}>Cancelar</Btn>
+      </>}>
+      <p className="text-[12px] px-1" style={{ color: C.slate }}>Pon lo que <b>realmente trae</b> la maleta ahora. No crea incidentes: queda como el último conteo, y el próximo refrendo o inspección espera esto.</p>
+      {Object.keys(bag.standard).map(it => {
+        const par = bag.standard[it], v = counts[it] ?? 0
+        return (
+          <div key={it} className="rounded-xl p-3 flex items-center justify-between" style={{ background: 'white', border: `1.5px solid ${v !== par ? C.amber : C.border}` }}>
+            <div>
+              <p className="text-[13px] font-medium" style={{ color: C.ink }}>{it}</p>
+              <p className="text-[11px]" style={{ color: v < par ? C.red : v > par ? C.amber : C.muted }}>Debería {par}{v !== par ? ` · ${v < par ? `faltan ${par - v}` : `sobran ${v - par}`}` : ''}</p>
+            </div>
+            <Stepper value={v} onChange={n => setCounts(c => ({ ...c, [it]: n }))} color={v !== par ? C.amber : C.ink} />
+          </div>
+        )
+      })}
+      <Field label="Nota (opcional)"><textarea value={note} onChange={e => setNote(e.target.value)} rows={2} style={inputStyle} placeholder="Ej. inventario inicial del 4 de noviembre" /></Field>
     </Sheet>
   )
 }
