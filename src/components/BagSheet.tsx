@@ -53,10 +53,10 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
       </div>
     </Sheet>
   )
-  if (mode === 'inspect' && cyc) return <InspectForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
+  if (mode === 'inspect' && cyc) return <InspectForm bag={bag} items={items} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'wash' && cyc) return <WashStartForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
-  if (mode === 'finish' && cyc) return <FinishForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
-  if (mode === 'adjust') return <AdjustForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
+  if (mode === 'finish' && cyc) return <FinishForm bag={bag} items={items} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
+  if (mode === 'adjust') return <AdjustForm bag={bag} items={items} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'dirty') return <MarkDirtyForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'incident') return <IncidentForm bag={bag} items={items} unit={unit ?? null} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
 
@@ -175,10 +175,11 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
 }
 
 // ─── Inspección: abrir la maleta y contar ───────────────────────────────────
-function InspectForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose: () => void; onDone: (m: string) => void; onError: (m: string) => void }) {
+function InspectForm({ bag, items, onClose, onDone, onError }: { bag: BoardBag; items: string[]; onClose: () => void; onDone: (m: string) => void; onError: (m: string) => void }) {
   const cyc = bag.cycle!
   const expected = expectedOf(bag)
   const [counts, setCounts] = useState<Counts>({ ...expected })
+  const [extra, setExtra] = useState<Counts>({})
   const [damaged, setDamaged] = useState<Counts>({})
   const [stained, setStained] = useState<Counts>({})
   const [flagOpen, setFlagOpen] = useState<string | null>(null)
@@ -188,14 +189,14 @@ function InspectForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose
   const [reportMissing, setReportMissing] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const diffs = Object.keys(expected).filter(k => (counts[k] ?? 0) !== expected[k])
+  const diffs = [...Object.keys(expected).filter(k => (counts[k] ?? 0) !== expected[k]), ...Object.keys(extra)]
   const hasFlags = Object.values(damaged).some(n => n > 0) || Object.values(stained).some(n => n > 0)
   const needPhoto = hasFlags && !photos.length && !noPhotoOk
 
   const send = async (confirmOnly: boolean) => {
     setBusy(true)
     try {
-      await apiPost('inspect', { cycleId: cyc.id, counts: confirmOnly ? expected : counts, damaged: confirmOnly ? {} : damaged, stained: confirmOnly ? {} : stained, note, photos, reportMissing })
+      await apiPost('inspect', { cycleId: cyc.id, counts: confirmOnly ? expected : { ...counts, ...extra }, damaged: confirmOnly ? {} : damaged, stained: confirmOnly ? {} : stained, note, photos, reportMissing })
       onDone(confirmOnly ? 'Inspección confirmada ✓' : 'Inspección guardada (incidentes creados si hubo diferencias)')
     } catch (e: any) { onError(e.message) } finally { setBusy(false) }
   }
@@ -245,6 +246,7 @@ function InspectForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose
           </div>
         )
       })}
+      <ExtraPieces items={items} shown={Object.keys(expected)} extra={extra} setExtra={setExtra} hint="Algo que vino en la maleta y no está en su lista (ej. un duvet). Queda registrado como lo que hay." />
       <Field label="Nota (opcional)"><textarea value={note} onChange={e => setNote(e.target.value)} rows={2} style={inputStyle} placeholder="Ej. olor fuerte, cabello en las sábanas…" /></Field>
       <div>
         <p className="text-[11px] font-medium uppercase tracking-wide mb-1" style={{ color: C.muted }}><Camera className="inline w-3 h-3" /> Fotos {hasFlags ? '(obligatoria por daño/mancha)' : '(opcional)'}</p>
@@ -284,15 +286,40 @@ function MarkDirtyForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClo
   )
 }
 
+// ─── Pieza extra: registrar algo que no está en la lista de esa maleta ───────
+function ExtraPieces({ items, shown, extra, setExtra, hint }: { items: string[]; shown: string[]; extra: Counts; setExtra: (c: Counts) => void; hint: string }) {
+  const avail = items.filter(i => !shown.includes(i) && extra[i] == null)
+  const set = (it: string, n: number) => { const c = { ...extra }; if (n <= 0) delete c[it]; else c[it] = n; setExtra(c) }
+  return (
+    <div className="rounded-xl p-3" style={{ background: 'white', border: `1.5px dashed ${C.border}` }}>
+      <p className="text-[11px] font-medium uppercase tracking-wide mb-1" style={{ color: C.muted }}>＋ Pieza extra</p>
+      <p className="text-[12px] mb-2" style={{ color: C.slate }}>{hint}</p>
+      {Object.keys(extra).map(it => (
+        <div key={it} className="flex items-center justify-between py-1.5">
+          <p className="text-[13px] font-medium" style={{ color: C.ink }}>{it}</p>
+          <Stepper value={extra[it]} onChange={n => set(it, n)} color={C.amber} />
+        </div>
+      ))}
+      {avail.length > 0 && (
+        <select value="" onChange={e => { if (e.target.value) set(e.target.value, 1) }} style={inputStyle}>
+          <option value="">Agregar pieza…</option>
+          {avail.map(i => <option key={i} value={i}>{i}</option>)}
+        </select>
+      )}
+    </div>
+  )
+}
+
 // ─── Contar / ajustar contenido (sin incidentes) ─────────────────────────────
-function AdjustForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose: () => void; onDone: (m: string) => void; onError: (m: string) => void }) {
+function AdjustForm({ bag, items, onClose, onDone, onError }: { bag: BoardBag; items: string[]; onClose: () => void; onDone: (m: string) => void; onError: (m: string) => void }) {
   const start: Counts = { ...bag.standard, ...(bag.known?.counts || {}) }
-  const [counts, setCounts] = useState<Counts>(start)
+  const [counts, setCounts] = useState<Counts>(Object.fromEntries(Object.entries(start).filter(([k, v]) => k in bag.standard || v > 0)))
+  const [extra, setExtra] = useState<Counts>({})
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const send = async () => {
     setBusy(true)
-    try { await apiPost('adjustContent', { bagId: bag.id, counts, note }); onDone('Conteo guardado ✓') }
+    try { await apiPost('adjustContent', { bagId: bag.id, counts: { ...counts, ...extra }, note }); onDone('Conteo guardado ✓') }
     catch (e: any) { onError(e.message) } finally { setBusy(false) }
   }
   return (
@@ -314,6 +341,7 @@ function AdjustForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
           </div>
         )
       })}
+      <ExtraPieces items={items} shown={Object.keys(counts).filter(k => k in bag.standard || counts[k] > 0)} extra={extra} setExtra={setExtra} hint="Piezas que trae la maleta y no están en su lista estándar." />
       <Field label="Nota (opcional)"><textarea value={note} onChange={e => setNote(e.target.value)} rows={2} style={inputStyle} placeholder="Ej. inventario inicial del 4 de noviembre" /></Field>
     </Sheet>
   )
@@ -349,12 +377,12 @@ function WashStartForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClo
 }
 
 // ─── Terminar lavado → LISTA ─────────────────────────────────────────────────
-function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose: () => void; onDone: (m: string) => void; onError: (m: string) => void }) {
+function FinishForm({ bag, items, onClose, onDone, onError }: { bag: BoardBag; items: string[]; onClose: () => void; onDone: (m: string) => void; onError: (m: string) => void }) {
   const cyc = bag.cycle!
   const base: Counts = cyc.counted?.counts || cyc.counted?.expected || bag.standard
   const [counts, setCounts] = useState<Counts>({ ...base })
   const [discarded, setDiscarded] = useState<Counts>({})
-  const [added] = useState<Counts>({})
+  const [added, setAdded] = useState<Counts>({})
   const [suggest, setSuggest] = useState<{ id: string; item: string; type: string; qty: number | null }[] | null>(null)
   const [rewash, setRewash] = useState(false)
   const [note, setNote] = useState('')
@@ -404,6 +432,7 @@ function FinishForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose:
           </div>
         )
       })}
+      <ExtraPieces items={items} shown={Object.keys(base)} extra={added} setExtra={setAdded} hint="Piezas que mandas y no estaban en la maleta (ej. un duvet nuevo). Quedan registradas como lo que sale." />
       <label className="flex items-center gap-2 text-[13px] font-semibold" style={{ color: C.slate }}><input type="checkbox" checked={rewash} onChange={e => setRewash(e.target.checked)} /> Hubo que re-lavar</label>
       <Field label="Nota (opcional)"><textarea value={note} onChange={e => setNote(e.target.value)} rows={2} style={inputStyle} /></Field>
       <PhotoPicker tag={`ready_${bag.code || bag.id}`} urls={photos} onChange={setPhotos} />
