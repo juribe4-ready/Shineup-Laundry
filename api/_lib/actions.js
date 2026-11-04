@@ -132,7 +132,10 @@ export async function actIncidents({ query }) {
   try { recs = await listAll(T.incidents, { filter, sort: [{ field: FI.created, dir: 'desc' }], max: 1000 }) }
   catch (e) { warnings.push(`No pude leer incidentes: ${e.message}`) }
   const staff = Object.entries(ctx.maps.staffMap).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
-  return { incidents: recs.map(r => normalizeIncident(r, { ...ctx.maps, bagMap })), staff, warnings }
+  // Si el incidente no trae Property, usa el nombre de casa de la maleta (mismo criterio que Inicio)
+  const houseOf = Object.fromEntries(ctx.bags.map(b => [b.id, (b.name && !b.name.includes('_') ? b.name : (b.properties || []).map(p => p.name).join(' / ') || b.name)]))
+  const incidents = recs.map(r => normalizeIncident(r, { ...ctx.maps, bagMap })).map(i => (i.propertyName && i.propertyName !== '?') || !i.bagId ? i : { ...i, propertyName: houseOf[i.bagId] || i.propertyName })
+  return { incidents, staff, warnings }
 }
 
 export async function actStaff() {
