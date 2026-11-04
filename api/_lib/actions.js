@@ -3,7 +3,7 @@ import { listAll, getRecord, createRecord, updateRecord, updateMany, getByIds } 
 import { HttpError, permissions } from './auth.js'
 import {
   todayET, nowISO, first, parseJSON, buildBoard, normState, loadConfig, loadNameMaps, detectItems, normalizeBag, resolveCode,
-  normalizeCycle, knownCounts, parseUnits, unitsText, codeParts, unitCode, normalizeIncident, semaforoOf, loadOpenLaundryIncidents,
+  normalizeCycle, knownCounts, parseIncidentName, parseUnits, unitsText, codeParts, unitCode, normalizeIncident, semaforoOf, loadOpenLaundryIncidents,
 } from './model.js'
 
 const CONDITIONS = ['Bueno', 'Normal', 'Malo']
@@ -262,14 +262,10 @@ export async function actMarkDirty({ profile, body }) {
 
 // Contar / ajustar contenido: guarda lo que de verdad trae la maleta ahora (sin crear incidentes). Sirve para el inventario inicial y para corregir.
 // Queda como "último conteo conocido": el siguiente refrendo o inspección espera exactamente esto.
-export async function actAdjustContent({ profile, body }) {
-  const ctx = await loadBags()
-  const bag = needBag(ctx, body.bagId)
-  const counts = cleanCounts(body.counts, ctx.items)
-  if (!Object.keys(counts).length) throw new HttpError(400, 'counts requerido')
+async function applyCounts(ctx, bag, counts, profile, note) {
   const rec = await currentCycleRecord(bag)
   const at = nowISO()
-  const entry = { at, by: staffName(ctx, profile), stage: 'Ajuste de inventario', note: String(body.note || 'Conteo manual').slice(0, 500), photos: [], counts }
+  const entry = { at, by: staffName(ctx, profile), stage: 'Ajuste de inventario', note: String(note || 'Conteo manual').slice(0, 500), photos: [], counts }
   if (!rec) {
     if (bag.state && bag.state !== 'Clean') throw new HttpError(409, `Esta maleta está en "${bag.state}" y no tiene ciclo: primero usa «Marcar sucia» y luego cuéntala`)
     const created = await createRecord(T.cycles, {
@@ -286,6 +282,16 @@ export async function actAdjustContent({ profile, body }) {
   if (st === 'Clean' || st === 'In Use') patch[FC.finalContent] = JSON.stringify({ counts, discarded: {}, expected: counts, added: {} })
   const upd = await updateRecord(T.cycles, rec.id, patch)
   return { ok: true, cycle: normalizeCycle(upd, ctx.maps.staffMap) }
+}
+
+// Contar / ajustar contenido: guarda lo que de verdad trae la maleta ahora (sin crear incidentes). Sirve para el inventario inicial y para corregir.
+// Queda como "último conteo conocido": el siguiente refrendo o inspección espera exactamente esto.
+export async function actAdjustContent({ profile, body }) {
+  const ctx = await loadBags()
+  const bag = needBag(ctx, body.bagId)
+  const counts = cleanCounts(body.counts, ctx.items)
+  if (!Object.keys(counts).length) throw new HttpError(400, 'counts requerido')
+  return applyCounts(ctx, bag, counts, profile, body.note || 'Conteo manual')
 }
 
 export async function actMarkInUse({ profile, body }) {
@@ -510,7 +516,7 @@ export async function actFinishWash({ profile, body }) {
   const bag = needBag(ctx, cyc.bagId || body.bagId)
   // Ciclo sin estado (registro creado/editado a mano en Airtable) pero la maleta SÍ está en Washing: se deja terminar y el ciclo queda coherente.
   if (cyc.state !== 'Washing' && !(!cyc.state && bag.state === 'Washing')) throw new HttpError(409, `Este ciclo está en "${cyc.state || 'sin estado'}", no Washing`)
-  const afterInspection = cyc.counted?.counts || cyc.counted?.expected || bag.standard
+  const afterInspection = knownCounts(bag, cyc).counts
   const discarded = cleanCounts(body.discarded, ctx.items)
   const expectedFinal = {}
   for (const it of Object.keys(afterInspection)) expectedFinal[it] = Math.max(0, (afterInspection[it] || 0) - (discarded[it] || 0))
@@ -545,7 +551,7 @@ export async function actFinishWash({ profile, body }) {
   return { ok: true, incidentsCreated: made.length, suggestClose, cycle: normalizeCycle(upd, ctx.maps.staffMap) }
 }
 
-export async function actUpdateIncident({ body }) {
+export async function actUpdateIncident({ profile, body }) {
   const rec = await getRecord(T.incidents, body.id)
   const f = rec.fields || {}
   if (f[FI.category] !== CATEGORY_LAUNDRY) throw new HttpError(400, 'Este incidente no es de lavandería')
@@ -558,8 +564,26 @@ export async function actUpdateIncident({ body }) {
   if (body.closeComment !== undefined) patch[FI.closeComment] = String(body.closeComment).slice(0, 1000)
   const finalClose = patch[FI.closeComment] !== undefined ? patch[FI.closeComment] : f[FI.closeComment]
   if (patch[FI.status] === 'Closed' && !String(finalClose || '').trim()) throw new HttpError(400, 'Para cerrar el incidente escribe qué se hizo para resolverlo')
+  // Al resolver un faltante (repuesto / apareció) o un sobrante (descartado) se puede ajustar el conteo de la maleta en el mismo paso
+  let adjusted = null
+  if (body.addToBag && patch[FI.status] === 'Closed' && f[FI.status] !== 'Closed') {
+    const bagId = first(f[FI.bag]); const parsed = parseIncidentName(f[FI.name])
+    const item = f[FI.item] || parsed.item; const qty = parsed.qty
+    if (bagId && item && qty && ['Faltante', 'Sobrante'].includes(parsed.type)) {
+      const ctx = await loadBags()
+      const bag = ctx.bags.find(b => b.id === bagId)
+      if (bag && ctx.items.includes(item)) {
+        const cycRec = await currentCycleRecord(bag)
+        const known = knownCounts(bag, cycRec ? normalizeCycle(cycRec, ctx.maps.staffMap) : null).counts
+        const cur = known[item] || 0
+        const next = parsed.type === 'Faltante' ? cur + qty : Math.max(0, cur - qty)
+        await applyCounts(ctx, bag, { ...known, [item]: next }, profile, `Incidente resuelto: ${parsed.type} ${item} ×${qty}`)
+        adjusted = { item, from: cur, to: next }
+      }
+    }
+  }
   const upd = await updateRecord(T.incidents, rec.id, patch)
-  return { ok: true, id: upd.id }
+  return { ok: true, id: upd.id, adjusted }
 }
 
 // «Client» en Laundry Bags es un lookup de un campo ligado: la API devuelve ids (recXXXX) y no nombres → se resuelven en la tabla Clients.
