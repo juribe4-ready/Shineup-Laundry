@@ -15,7 +15,7 @@ interface Props {
   onError: (msg: string) => void
 }
 
-type Mode = 'info' | 'inspect' | 'wash' | 'finish' | 'incident'
+type Mode = 'info' | 'inspect' | 'wash' | 'finish' | 'incident' | 'dirty'
 
 const expectedOf = (bag: BoardBag): Counts => {
   const exp: Counts = { ...bag.standard }
@@ -56,23 +56,26 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
   if (mode === 'inspect' && cyc) return <InspectForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'wash' && cyc) return <WashStartForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'finish' && cyc) return <FinishForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
+  if (mode === 'dirty') return <MarkDirtyForm bag={bag} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
   if (mode === 'incident') return <IncidentForm bag={bag} items={items} unit={unit ?? null} onClose={() => setMode('info')} onDone={m => { onChanged(m) }} onError={onError} />
 
-  const stateColor = STATE_COLOR[bag.state || 'Sin estado']
+  const st = (cyc?.state as string | null) || bag.state
+  const stateColor = STATE_COLOR[st || 'Sin estado']
   return (
     <Sheet title={title} onClose={onClose}
       footer={canOperate ? (
         <>
-          {bag.state === 'Dirty' && cyc && bag.units.some(u => u.where === 'transito') && (
+          {st === 'Dirty' && cyc && bag.units.some(u => u.where === 'transito') && (
             <Btn ghost color={C.teal} onClick={async () => {
               try { await apiPost('receive', unit && bag.units.find(u => u.n === unit)?.where === 'transito' ? { cycleId: cyc.id, unit } : { cycleId: cyc.id, all: true }); onChanged('Recepción confirmada ✓') }
               catch (e: any) { onError(e.message) }
             }}><PackageOpen className="w-4 h-4" /> {unit && bag.units.find(u => u.n === unit)?.where === 'transito' ? `Confirmar que llegó la #${unit}` : 'Confirmar que llegaron (opcional)'}</Btn>
           )}
-          {bag.state === 'Dirty' && <Btn color={C.violet} onClick={() => setMode('inspect')}><ClipboardCheck className="w-4 h-4" /> Inspeccionar (abrir y contar)</Btn>}
-          {bag.state === 'Inspected' && <Btn color={C.blue} onClick={() => setMode('wash')}><Droplets className="w-4 h-4" /> Iniciar lavado</Btn>}
-          {bag.state === 'Washing' && <Btn color={C.green} onClick={() => setMode('finish')}><PackageCheck className="w-4 h-4" /> Terminar y marcar Clean</Btn>}
-          {bag.state === 'In Use' && cyc && !(cyc.unitsBack || []).length && (
+          {(!cyc || st === 'Clean' || st === 'In Use') && <Btn ghost color={C.orange} onClick={() => setMode('dirty')}><ClipboardCheck className="w-4 h-4" /> Marcar sucia (ajuste manual)</Btn>}
+          {st === 'Dirty' && <Btn color={C.violet} onClick={() => setMode('inspect')}><ClipboardCheck className="w-4 h-4" /> Inspeccionar (abrir y contar)</Btn>}
+          {st === 'Inspected' && <Btn color={C.blue} onClick={() => setMode('wash')}><Droplets className="w-4 h-4" /> Iniciar lavado</Btn>}
+          {st === 'Washing' && <Btn color={C.green} onClick={() => setMode('finish')}><PackageCheck className="w-4 h-4" /> Terminar y marcar Clean</Btn>}
+          {st === 'In Use' && cyc && !(cyc.unitsBack || []).length && (
             <Btn ghost color={C.slate} onClick={async () => {
               if (!window.confirm(`¿Deshacer la carga de ${bag.name}? Vuelve a Clean (todas sus maletas).`)) return
               try { await apiPost('undoLoad', { bagId: bag.id }); onChanged('Carga deshecha ✓ (vuelve a Clean)') }
@@ -83,7 +86,7 @@ export default function BagSheet({ bag, items, unit, canOperate, onClose, onChan
         </>
       ) : undefined}>
       <div className="flex flex-wrap items-center gap-2">
-        <Pill text={bag.state || 'Sin estado'} color={stateColor} solid />
+        <Pill text={st || 'Sin estado'} color={stateColor} solid />
         <Pill text={`Semáforo ${bag.semaforo}`} color={SEMAFORO_COLOR[bag.semaforo]} />
         {bag.qty > 1 && <Pill text={`${bag.qty} maletas${unit ? ` · vista #${unit}` : ''}`} color={C.slate} />}
         {bag.daysDirty != null && <Pill text={`Sucia hace ${bag.daysDirty} d`} color={LEVEL_COLOR[bag.dirtyLevel]} />}
@@ -250,6 +253,31 @@ function InspectForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose
           </label>
         )}
       </div>
+    </Sheet>
+  )
+}
+
+// ─── Marcar sucia (ajuste manual) ────────────────────────────────────────────
+function MarkDirtyForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClose: () => void; onDone: (m: string) => void; onError: (m: string) => void }) {
+  const [received, setReceived] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const send = async () => {
+    setBusy(true)
+    try { await apiPost('markDirty', { bagId: bag.id, received }); onDone('Maleta marcada sucia ✓ (ajuste manual)') }
+    catch (e: any) { onError(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <Sheet title={`Marcar sucia · ${bag.code || bag.name}`} onClose={onClose}
+      footer={<>
+        <Btn color={C.orange} disabled={busy} onClick={send}>Marcar sucia{bag.qty > 1 ? ` (${bag.qty} maletas)` : ''}</Btn>
+        <Btn ghost color={C.slate} onClick={onClose}>Cancelar</Btn>
+      </>}>
+      <p className="text-[13px]" style={{ color: C.slate }}>Úsalo cuando la maleta <b>ya está sucia en la realidad</b> pero el sistema no lo sabe (por ejemplo, la cleaner no la declaró). Pasa a <b>Dirty</b> y después la puedes inspeccionar y contar.</p>
+      <label className="flex items-start gap-2 text-[13px] font-semibold rounded-xl p-3" style={{ background: 'white', border: `1px solid ${C.border}`, color: C.ink }}>
+        <input type="checkbox" checked={received} onChange={e => setReceived(e.target.checked)} className="mt-0.5" />
+        <span>Ya está en lavandería<br /><span className="font-normal text-[12px]" style={{ color: C.slate }}>Si la desmarcas queda «en tránsito (sin confirmar)».</span></span>
+      </label>
+      <p className="text-[12px]" style={{ color: C.muted }}>Estado actual: {bag.cycle?.state || bag.state || 'sin estado'}. Queda anotado en el historial como «Ajuste manual».</p>
     </Sheet>
   )
 }
