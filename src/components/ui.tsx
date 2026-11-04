@@ -80,18 +80,26 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
   )
 }
 
-export function Stepper({ value, onChange, min = 0, max = 99, color = C.teal }: { value: number; onChange: (n: number) => void; min?: number; max?: number; color?: string }) {
+export function Stepper({ value, onChange, min = 0, max = 99, color = C.teal, compact = false }: { value: number; onChange: (n: number) => void; min?: number; max?: number; color?: string; compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2">
-      <button onClick={() => onChange(Math.max(min, value - 1))} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90" style={{ background: C.bg, border: `1px solid ${C.border}` }}>
+    <div className={`flex items-center ${compact ? 'gap-1' : 'gap-2'}`}>
+      <button onClick={() => onChange(Math.max(min, value - 1))} className={`${compact ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-xl'} flex items-center justify-center active:scale-90`} style={{ background: C.bg, border: `1px solid ${C.border}` }}>
         <Minus className="w-4 h-4" style={{ color: C.slate }} />
       </button>
-      <span className="w-8 text-center font-semibold text-[16px]" style={{ color }}>{value}</span>
-      <button onClick={() => onChange(Math.min(max, value + 1))} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90" style={{ background: C.bg, border: `1px solid ${C.border}` }}>
+      <span className={`${compact ? 'w-7 text-[15px]' : 'w-8 text-[16px]'} text-center font-semibold`} style={{ color }}>{value}</span>
+      <button onClick={() => onChange(Math.min(max, value + 1))} className={`${compact ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-xl'} flex items-center justify-center active:scale-90`} style={{ background: C.bg, border: `1px solid ${C.border}` }}>
         <Plus className="w-4 h-4" style={{ color: C.slate }} />
       </button>
     </div>
   )
+}
+
+const SIZE_ORDER = ['twin', 'tw', 'full', 'f', 'queen', 'q', 'king', 'k']
+export function groupItems(keys: string[]): { label: string; items: string[] }[] {
+  const grp = (k: string) => /sheet/i.test(k) ? 'Sábanas' : /pillow/i.test(k) ? 'Almohadas' : /duvet|comforter|blanket|cover|protector/i.test(k) ? 'Cobijas / duvets' : /towel|cloth|mat/i.test(k) ? 'Toallas' : 'Otros'
+  const order = ['Sábanas', 'Almohadas', 'Cobijas / duvets', 'Toallas', 'Otros']
+  const sz = (k: string) => { const t = (k.split('-')[1] || '').toLowerCase(); const i = SIZE_ORDER.indexOf(t); return i < 0 ? 99 : i }
+  return order.map(label => ({ label, items: keys.filter(k => grp(k) === label).sort((a, b) => sz(a) - sz(b) || a.localeCompare(b)) })).filter(g => g.items.length)
 }
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {

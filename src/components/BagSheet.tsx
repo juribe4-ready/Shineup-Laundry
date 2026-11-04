@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Camera, AlertTriangle, Droplets, ClipboardCheck, PackageCheck, PackageOpen } from 'lucide-react'
 import { apiGet, apiPost } from '../lib/api'
 import type { BoardBag, Counts, Incident } from '../lib/types'
-import { Btn, C, Dot, Field, fmtDate, fmtDateTime, inputStyle, LEVEL_COLOR, Pill, PhotoPicker, SEMAFORO_COLOR, Sheet, Spinner, STATE_COLOR, Stepper } from './ui'
+import { Btn, C, Dot, Field, fmtDate, fmtDateTime, inputStyle, LEVEL_COLOR, Pill, PhotoPicker, SEMAFORO_COLOR, groupItems, Sheet, Spinner, STATE_COLOR, Stepper } from './ui'
 
 interface Props {
   bag: BoardBag
@@ -221,32 +221,41 @@ function InspectForm({ bag, items, onClose, onDone, onError }: { bag: BoardBag; 
         </div>
       )}
       {cyc.short.length > 0 && <p className="text-[12px] font-semibold px-1" style={{ color: C.slate }}>Ya descontado lo que el cleaner dejó limpio en la propiedad.</p>}
-      <p className="text-[12px] px-1" style={{ color: C.slate }}>Viene precargado con lo que <b>debería</b> traer. Cambia solo lo que difiera.</p>
-      {Object.keys(expected).map(it => {
-        const diff = (counts[it] ?? 0) - expected[it]
-        return (
-          <div key={it} className="rounded-xl p-3" style={{ background: 'white', border: `1.5px solid ${diff !== 0 ? C.amber : C.border}` }}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[13px] font-medium" style={{ color: C.ink }}>{it}</p>
-                <p className="text-[11px]" style={{ color: diff < 0 ? C.red : diff > 0 ? C.amber : C.muted }}>
-                  Esperado {expected[it]}{diff !== 0 ? ` · ${diff < 0 ? `faltan ${-diff}` : `sobran ${diff}`}` : ''}
-                </p>
-              </div>
-              <Stepper value={counts[it] ?? 0} onChange={n => setCounts(c => ({ ...c, [it]: n }))} color={diff !== 0 ? C.amber : C.ink} />
-            </div>
-            <button onClick={() => setFlagOpen(flagOpen === it ? null : it)} className="text-[11px] font-medium mt-2" style={{ color: C.red }}>
-              {(damaged[it] || stained[it]) ? `Dañado ${damaged[it] || 0} · Manchado ${stained[it] || 0}` : '＋ marcar dañado / manchado'}
-            </button>
-            {flagOpen === it && (
-              <div className="flex gap-6 mt-2">
-                <div><p className="text-[10px] font-medium mb-1" style={{ color: C.muted }}>DAÑADO</p><Stepper value={damaged[it] || 0} onChange={n => setDamaged(d => ({ ...d, [it]: n }))} color={C.red} max={counts[it] ?? 99} /></div>
-                <div><p className="text-[10px] font-medium mb-1" style={{ color: C.muted }}>MANCHADO</p><Stepper value={stained[it] || 0} onChange={n => setStained(d => ({ ...d, [it]: n }))} color={C.red} max={counts[it] ?? 99} /></div>
-              </div>
-            )}
+      <p className="text-[12px] px-1" style={{ color: C.slate }}>Viene precargado con lo que <b>debería</b> traer. Cambia solo lo que difiera. ⚑ = dañado / manchado.</p>
+      {groupItems(Object.keys(expected)).map(g => (
+        <div key={g.label}>
+          <p className="text-[10px] font-semibold uppercase tracking-wide px-1 mb-1" style={{ color: C.muted }}>{g.label}</p>
+          <div className="rounded-xl overflow-hidden" style={{ background: 'white', border: `1.5px solid ${C.border}` }}>
+            {g.items.map((it, idx) => {
+              const diff = (counts[it] ?? 0) - expected[it]
+              const flagged = !!(damaged[it] || stained[it])
+              return (
+                <div key={it} style={{ borderTop: idx ? `1px solid ${C.border}` : 'none', background: diff < 0 ? '#FEF2F2' : diff > 0 ? '#F0FDF4' : 'white' }}>
+                  <div className="flex items-center gap-2 px-3 py-1.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium truncate" style={{ color: C.ink }}>{it}</p>
+                      <p className="text-[10px]" style={{ color: diff < 0 ? C.red : diff > 0 ? C.green : C.muted }}>
+                        Esperado {expected[it]}{diff !== 0 ? ` · ${diff < 0 ? `faltan ${-diff}` : `sobran ${diff}`}` : ''}
+                      </p>
+                    </div>
+                    <button onClick={() => setFlagOpen(flagOpen === it ? null : it)} title="Marcar dañado / manchado"
+                      className="text-[11px] font-semibold px-2 py-1 rounded-lg whitespace-nowrap" style={{ color: C.red, background: flagged || flagOpen === it ? '#FEE2E2' : 'transparent' }}>
+                      {flagged ? `D${damaged[it] || 0}·M${stained[it] || 0}` : '⚑'}
+                    </button>
+                    <Stepper compact value={counts[it] ?? 0} onChange={n => setCounts(c => ({ ...c, [it]: n }))} color={diff < 0 ? C.red : diff > 0 ? C.green : C.ink} />
+                  </div>
+                  {flagOpen === it && (
+                    <div className="flex gap-6 px-3 pb-2">
+                      <div><p className="text-[10px] font-medium mb-1" style={{ color: C.muted }}>DAÑADO</p><Stepper compact value={damaged[it] || 0} onChange={n => setDamaged(d => ({ ...d, [it]: n }))} color={C.red} max={counts[it] ?? 99} /></div>
+                      <div><p className="text-[10px] font-medium mb-1" style={{ color: C.muted }}>MANCHADO</p><Stepper compact value={stained[it] || 0} onChange={n => setStained(d => ({ ...d, [it]: n }))} color={C.red} max={counts[it] ?? 99} /></div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        )
-      })}
+        </div>
+      ))}
       <ExtraPieces items={items} shown={Object.keys(expected)} extra={extra} setExtra={setExtra} hint="Algo que vino en la maleta y no está en su lista (ej. un duvet). Queda registrado como lo que hay." />
       <Field label="Nota (opcional)"><textarea value={note} onChange={e => setNote(e.target.value)} rows={2} style={inputStyle} placeholder="Ej. olor fuerte, cabello en las sábanas…" /></Field>
       <div>
@@ -418,7 +427,7 @@ function FinishForm({ bag, items, onClose, onDone, onError }: { bag: BoardBag; i
       footer={<Btn color={C.green} disabled={busy} onClick={go}><PackageCheck className="w-4 h-4" /> Marcar Clean{lost.length ? ` (${lost.length} con faltante)` : ''}</Btn>}>
       {err && <div className="rounded-xl p-3 text-[13px]" style={{ background: '#FEF2F2', color: '#B91C1C' }}><b>No se pudo marcar Clean:</b> {err}<br /><span style={{ fontSize: 11 }}>Debug · ciclo {cyc.id} · estado del ciclo {cyc.state || '—'}</span></div>}
       <p className="text-[12px] px-1" style={{ color: C.slate }}>Cuenta lo que sale. Viene precargado con lo que entró; cambia solo lo que difiera. Si retiraste una pieza por daño o mancha, márcala como retirada.</p>
-      {Object.keys(base).map(it => {
+      {groupItems(Object.keys(base)).flatMap(g => g.items).map(it => {
         const lostHere = (counts[it] ?? 0) < base[it] - (discarded[it] || 0)
         return (
           <div key={it} className="rounded-xl p-3 flex items-center justify-between" style={{ background: 'white', border: `1.5px solid ${lostHere ? C.red : C.border}` }}>
