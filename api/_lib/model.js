@@ -286,12 +286,13 @@ export function knownCounts(bag, cycle) {
 // Se deduce del ciclo más reciente; "Faltante" = par − lo que se sabe dónde está.
 export function inventoryOf(bag, cycle) {
   const par = bag.standard || {}
-  const items = Object.keys(par)
+  const kn = knownCounts(bag, cycle)
+  // incluye piezas que no están en el estándar pero se registraron (ej. un duvet que vino de más)
+  const items = [...new Set([...Object.keys(par), ...(kn.source === 'par' ? [] : Object.entries(kn.counts).filter(([, v]) => v > 0).map(([k]) => k))])]
   if (!items.length) return { rows: [], totals: { par: 0, home: 0, bag: 0, laundry: 0, missing: 0 }, known: false }
   const state = cycle?.state || bag.state || null
   const sum = (kind) => { const m = {}; for (const s of cycle?.short || []) if (s.kind === kind) m[s.item] = (m[s.item] || 0) + (s.qty || 0); return m }
   const left = sum('left'), other = sum('other'), clean = sum('clean')
-  const kn = knownCounts(bag, cycle)
   const rows = items.map(item => {
     const p = par[item] || 0
     const l = Math.min(p, left[item] || 0)
