@@ -9,6 +9,7 @@ interface Props {
   bag: BoardBag
   items: string[]
   unit?: number | null
+  initialMode?: Mode
   canOperate: boolean
   onClose: () => void
   onChanged: (msg: string) => void
@@ -23,8 +24,8 @@ const expectedOf = (bag: BoardBag): Counts => {
   return exp
 }
 
-export default function BagSheet({ bag, items, unit, canOperate, onClose, onChanged, onError }: Props) {
-  const [mode, setMode] = useState<Mode>('info')
+export default function BagSheet({ bag, items, unit, initialMode, canOperate, onClose, onChanged, onError }: Props) {
+  const [mode, setMode] = useState<Mode>(initialMode || 'info')
   const [incidents, setIncidents] = useState<Incident[] | null>(null)
   const [noCycBusy, setNoCycBusy] = useState(false)
 
@@ -379,7 +380,7 @@ function WashStartForm({ bag, onClose, onDone, onError }: { bag: BoardBag; onClo
 // ─── Terminar lavado → LISTA ─────────────────────────────────────────────────
 function FinishForm({ bag, items, onClose, onDone, onError }: { bag: BoardBag; items: string[]; onClose: () => void; onDone: (m: string) => void; onError: (m: string) => void }) {
   const cyc = bag.cycle!
-  const base: Counts = cyc.counted?.counts || cyc.counted?.expected || bag.standard
+  const base: Counts = bag.known?.counts || cyc.counted?.counts || cyc.counted?.expected || bag.standard
   const [counts, setCounts] = useState<Counts>({ ...base })
   const [discarded, setDiscarded] = useState<Counts>({})
   const [added, setAdded] = useState<Counts>({})
