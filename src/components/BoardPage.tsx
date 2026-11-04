@@ -216,7 +216,7 @@ function Row({ b, onOpen, stage, menu, setMenu }: { b: BoardBag; onOpen: (b: Boa
             <p className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{houseName(b)}</p>
             <p className="text-[11px] truncate" style={{ color: C.muted }}>
               {all.length} {all.length === 1 ? 'maleta' : 'maletas'}{hidden > 0 ? ` (${hidden} en otra etapa)` : ''}{cl ? ` · ${cl}` : ''}
-              {b.openIncidents > 0 ? <span style={{ color: C.red }}> · {b.openIncidents} incid.</span> : null}
+              {b.openIncidents > 0 ? <span style={{ color: C.red }}> · {b.openIncidents} incid.</span> : diff !== 0 ? <span style={{ color: C.amber }} title="Hay diferencia entre lo que debería haber y lo que hay, pero no se creó incidente"> · dif. sin incidente</span> : null}
             </p>
           </div>
           <div className="text-right md:hidden">
