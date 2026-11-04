@@ -35,7 +35,7 @@ function Main() {
   const [board, setBoard] = useState<Board | null>(null)
   const [cfg, setCfg] = useState<ConfigInfo | null>(null)
   const [tab, setTab] = useState<Tab>('cola')
-  const [sel, setSel] = useState<{ bag: BoardBag; unit: number | null } | null>(null)
+  const [sel, setSel] = useState<{ bag: BoardBag; unit: number | null; mode?: string } | null>(null)
   const toast = useToast()
 
   useEffect(() => {
@@ -122,7 +122,7 @@ function Main() {
           </div>
           {!board && tab !== 'etq' && tab !== 'kpi' && tab !== 'inc' ? <div className="flex justify-center py-10"><Spinner size={28} /></div> : (
             <>
-              {tab === 'cola' && board && <BoardPage board={board} onOpen={b => setSel({ bag: b, unit: null })} />}
+              {tab === 'cola' && board && <BoardPage board={board} onOpen={(b, mode) => setSel({ bag: b, unit: null, mode })} />}
               {tab === 'scan' && board && <ScanPage bags={board.bags} onFound={(b, u) => setSel({ bag: b, unit: u })} onMsg={toast.show} />}
               {tab === 'inv' && board && <InventoryPage board={board} onOpen={b => setSel({ bag: b, unit: null })} />}
               {tab === 'inc' && <IncidentsPage me={me} cfg={cfg} onMsg={toast.show} />}
@@ -142,7 +142,7 @@ function Main() {
       </nav>
       {me.permissions.admin && <DebugPanel />}
       {sel && (
-        <BagSheet bag={sel.bag} items={bagItems} unit={sel.unit} canOperate={me.permissions.laundry}
+        <BagSheet bag={sel.bag} items={bagItems} unit={sel.unit} initialMode={sel.mode as any} canOperate={me.permissions.laundry}
           onClose={() => setSel(null)}
           onChanged={m => { setSel(null); toast.show(m); loadBoard() }}
           onError={m => toast.show(m, true)} />
