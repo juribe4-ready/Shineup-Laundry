@@ -265,6 +265,22 @@ export async function nextCleaningByProperty(today) {
 // ── Tablero ──────────────────────────────────────────────────────────────────
 const RANK = { ok: 0, amber: 1, red: 2 }
 
+// ── Último conteo conocido de lo que trae la maleta ─────────────────────────
+// Regla única: lo esperado en cada paso = lo contado en el paso anterior (el estándar/par solo se usa si nadie ha contado nada).
+// Fuentes: entradas de bitácora con "counts" (declaración, refrendo del cleaner, ajuste de inventario), conteo de inspección y contenido final del lavado. Gana la más reciente.
+export function knownCounts(bag, cycle) {
+  const par = bag?.standard || {}
+  if (!cycle) return { counts: { ...par }, source: 'par', at: null }
+  const cand = []
+  for (const e of cycle.log || []) if (e && e.counts && typeof e.counts === 'object') cand.push({ at: e.at, counts: e.counts, source: 'log' })
+  if (cycle.finalContent?.counts && Object.keys(cycle.finalContent.counts).length) cand.push({ at: cycle.readyAt, counts: cycle.finalContent.counts, source: 'final' })
+  if (cycle.counted?.counts && Object.keys(cycle.counted.counts).length) cand.push({ at: cycle.inspectedAt, counts: cycle.counted.counts, source: 'counted' })
+  if (!cand.length) return { counts: { ...par }, source: 'par', at: null }
+  const t = (c) => (c.at ? Date.parse(c.at) || 0 : 0)
+  let best = cand[0]; for (const c of cand) if (t(c) >= t(best)) best = c
+  return { counts: { ...par, ...best.counts }, source: best.source, at: best.at || null }
+}
+
 // ── Inventario por pieza: dónde está cada cosa ──────────────────────────────
 // Columnas: par (lo que debería tener la casa) · casa · maleta · lavandería · falta (se calcula, nadie lo cuenta).
 // Se deduce del ciclo más reciente; "Faltante" = par − lo que se sabe dónde está.
@@ -275,14 +291,16 @@ export function inventoryOf(bag, cycle) {
   const state = cycle?.state || bag.state || null
   const sum = (kind) => { const m = {}; for (const s of cycle?.short || []) if (s.kind === kind) m[s.item] = (m[s.item] || 0) + (s.qty || 0); return m }
   const left = sum('left'), other = sum('other'), clean = sum('clean')
+  const kn = knownCounts(bag, cycle)
   const rows = items.map(item => {
     const p = par[item] || 0
     const l = Math.min(p, left[item] || 0)
     let home = 0, inBag = 0, laundry = 0, missing = 0
     if (!cycle || !state) { home = p; return { item, par: p, home, bag: 0, laundry: 0, missing: 0 } }
     if (state === 'Dirty') {
-      home = l; missing = Math.min(p - l, other[item] || 0)
-      inBag = Math.max(0, p - home - missing)
+      home = l
+      if (kn.source === 'log') { inBag = Math.max(0, (kn.counts[item] ?? p) - l - (other[item] || 0)); missing = Math.max(0, p - home - inBag) } // hay un conteo real (refrendo/ajuste)
+      else { missing = Math.min(p - l, other[item] || 0); inBag = Math.max(0, p - home - missing) }
     } else if (state === 'Inspected' || state === 'Washing') {
       const c = cycle.counted?.counts?.[item]
       laundry = c != null ? c : Math.max(0, p - l - (other[item] || 0))
@@ -378,6 +396,7 @@ export async function buildBoard() {
       alert: RANK[risk] >= RANK[dirtyLevel] ? risk : dirtyLevel,
       semaforo: semaforoOf(open, cycle), openIncidents: open.length,
       inventory: inventoryOf(b, cycle),
+      known: knownCounts(b, cycle),
       units: unitsOf(b, cycle, cfg),
     }
   })

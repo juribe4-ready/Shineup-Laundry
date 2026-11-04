@@ -3,7 +3,7 @@ import { listAll, getRecord, createRecord, updateRecord, updateMany, getByIds } 
 import { HttpError, permissions } from './auth.js'
 import {
   todayET, nowISO, first, parseJSON, buildBoard, normState, loadConfig, loadNameMaps, detectItems, normalizeBag, resolveCode,
-  normalizeCycle, parseUnits, unitsText, codeParts, unitCode, normalizeIncident, semaforoOf, loadOpenLaundryIncidents,
+  normalizeCycle, knownCounts, parseUnits, unitsText, codeParts, unitCode, normalizeIncident, semaforoOf, loadOpenLaundryIncidents,
 } from './model.js'
 
 const CONDITIONS = ['Bueno', 'Normal', 'Malo']
@@ -172,7 +172,7 @@ export async function actDeclareReturn({ profile, body }) {
   const bag = needBag(ctx, body.bagId)
   const staffId = profile.staff_airtable_id || null
   const prev = await currentCycleRecord(bag)
-  let prevOut = null, prevUnits = []
+  let prevOut = null, prevUnits = [], prevKnown = null
   if (prev) {
     const st = normState(prev.fields?.[FC.state])
     if (first(prev.fields?.[FC.cleaningClose]) === body.cleaningId && st === 'Dirty') {
@@ -182,6 +182,7 @@ export async function actDeclareReturn({ profile, body }) {
       await updateRecord(T.cycles, prev.id, { [FC.cleaningUse]: [body.cleaningId] })
     }
     const pc = normalizeCycle(prev, ctx.maps.staffMap)
+    { const k = knownCounts(bag, pc); if (k.source !== 'par') prevKnown = k.counts }
     prevOut = pc.bagsOut
     prevUnits = pc.unitsOut
   }
@@ -214,7 +215,7 @@ export async function actDeclareReturn({ profile, body }) {
     [FC.special]: condition === 'Malo',
     [FC.bagsBack]: unitsBack,
     [FC.unitsSeen]: units.map(u => `${u.unit}=${u.status}${u.place ? '@' + u.place : ''}`).join(','),
-    [FC.log]: JSON.stringify([{ at, by: staffName(ctx, profile), stage: 'Declaración', note, photos }]),
+    [FC.log]: JSON.stringify([{ at, by: staffName(ctx, profile), stage: 'Declaración', note, photos, ...(prevKnown ? { counts: prevKnown } : {}) }]),
   }
   if (prevOut != null) fields[FC.bagsOut] = prevOut
   else if (prevUnits.length) fields[FC.bagsOut] = prevUnits.length
@@ -257,6 +258,34 @@ export async function actMarkDirty({ profile, body }) {
   const created = await createRecord(T.cycles, fields)
   await updateRecord(T.bags, bag.id, { [FB.state]: 'Dirty', [FB.lastCycle]: [created.id] })
   return { ok: true, cycle: normalizeCycle(created, ctx.maps.staffMap) }
+}
+
+// Contar / ajustar contenido: guarda lo que de verdad trae la maleta ahora (sin crear incidentes). Sirve para el inventario inicial y para corregir.
+// Queda como "último conteo conocido": el siguiente refrendo o inspección espera exactamente esto.
+export async function actAdjustContent({ profile, body }) {
+  const ctx = await loadBags()
+  const bag = needBag(ctx, body.bagId)
+  const counts = cleanCounts(body.counts, ctx.items)
+  if (!Object.keys(counts).length) throw new HttpError(400, 'counts requerido')
+  const rec = await currentCycleRecord(bag)
+  const at = nowISO()
+  const entry = { at, by: staffName(ctx, profile), stage: 'Ajuste de inventario', note: String(body.note || 'Conteo manual').slice(0, 500), photos: [], counts }
+  if (!rec) {
+    if (bag.state && bag.state !== 'Clean') throw new HttpError(409, `Esta maleta está en "${bag.state}" y no tiene ciclo: primero usa «Marcar sucia» y luego cuéntala`)
+    const created = await createRecord(T.cycles, {
+      [FC.name]: `${bag.code || bag.name} · ${todayET()} (inventario inicial)`,
+      [FC.bag]: [bag.id], [FC.state]: 'Clean', [FC.readyAt]: at,
+      [FC.finalContent]: JSON.stringify({ counts, discarded: {}, expected: counts, added: {} }),
+      [FC.log]: JSON.stringify([entry]),
+    })
+    await updateRecord(T.bags, bag.id, { [FB.state]: 'Clean', [FB.lastCycle]: [created.id] })
+    return { ok: true, cycle: normalizeCycle(created, ctx.maps.staffMap) }
+  }
+  const st = normState(rec.fields?.[FC.state])
+  const patch = { [FC.log]: logAppend(rec.fields?.[FC.log], entry) }
+  if (st === 'Clean' || st === 'In Use') patch[FC.finalContent] = JSON.stringify({ counts, discarded: {}, expected: counts, added: {} })
+  const upd = await updateRecord(T.cycles, rec.id, patch)
+  return { ok: true, cycle: normalizeCycle(upd, ctx.maps.staffMap) }
 }
 
 export async function actMarkInUse({ profile, body }) {
@@ -359,8 +388,7 @@ export async function actRefrendo({ profile, body }) {
   const bag = needBag(ctx, body.bagId)
   const rec = await currentCycleRecord(bag)
   const cyc = rec ? normalizeCycle(rec, ctx.maps.staffMap) : null
-  const fc = cyc?.finalContent?.counts
-  const expected = fc && Object.keys(fc).length ? fc : (bag.standard || {})
+  const expected = knownCounts(bag, cyc).counts
   const found = cleanCounts(body.counts, ctx.items)
   const dirty = Object.entries(cleanCounts(body.dirty, ctx.items)).filter(([, n]) => n > 0)
   const staffId = profile.staff_airtable_id || null
@@ -377,7 +405,7 @@ export async function actRefrendo({ profile, body }) {
   for (const [it, n] of dirty) { made.push(await createLaundryIncident(ctx, { ...base, type: 'Sucio / Manchado', item: it, qty: n, comment: `Vino sucio/manchado. ${comment}`.trim() })); lines.push(`${it} sucio ×${n}`) }
   if (rec) {
     try {
-      await updateRecord(T.cycles, rec.id, { [FC.log]: logAppend(rec.fields?.[FC.log], { at: nowISO(), by: staffName(ctx, profile), stage: 'Refrendo cleaner', note: lines.length ? `Diferencias: ${lines.join(', ')}${comment ? ' | ' + comment : ''}` : `Todo coincide${comment ? ' | ' + comment : ''}`, photos: cleanPhotos(body.photos) }) })
+      await updateRecord(T.cycles, rec.id, { [FC.log]: logAppend(rec.fields?.[FC.log], { at: nowISO(), by: staffName(ctx, profile), stage: 'Refrendo cleaner', note: lines.length ? `Diferencias: ${lines.join(', ')}${comment ? ' | ' + comment : ''}` : `Todo coincide${comment ? ' | ' + comment : ''}`, photos: cleanPhotos(body.photos), counts: { ...expected, ...found } }) })
     } catch { /* la bitácora es secundaria */ }
   }
   return { ok: true, incidentsCreated: made.length, matches: lines.length === 0 }
@@ -400,8 +428,8 @@ export async function actReportBagIncident({ profile, body }) {
 }
 
 // ── escrituras (lavandería) ──────────────────────────────────────────────────
-const expectedOf = (bag, short) => {
-  const exp = { ...bag.standard }
+const expectedOf = (bag, short, known) => {
+  const exp = { ...(known || bag.standard) }
   for (const s of short || []) if (exp[s.item] != null) exp[s.item] = Math.max(0, exp[s.item] - s.qty)
   return exp
 }
@@ -412,7 +440,7 @@ export async function actInspect({ profile, body }) {
   const cyc = normalizeCycle(rec, ctx.maps.staffMap)
   if (cyc.state !== 'Dirty') throw new HttpError(409, `Este ciclo está en "${cyc.state || 'sin estado'}"; solo se inspecciona una maleta Dirty`)
   const bag = needBag(ctx, cyc.bagId)
-  const expected = expectedOf(bag, cyc.short)
+  const expected = expectedOf(bag, cyc.short, knownCounts(bag, cyc).counts)
   const counts = { ...expected, ...cleanCounts(body.counts, ctx.items) }
   const damaged = cleanCounts(body.damaged, ctx.items)
   const stained = cleanCounts(body.stained, ctx.items)
