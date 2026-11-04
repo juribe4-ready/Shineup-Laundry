@@ -227,6 +227,38 @@ export async function actDeclareReturn({ profile, body }) {
   return { ok: true, duplicate: false, cycle: normalizeCycle(created, ctx.maps.staffMap) }
 }
 
+// Ajuste manual: deja la maleta en Dirty sin que un cleaner la haya declarado (maletas que en la realidad ya están sucias).
+// Crea un ciclo nuevo con los mismos campos que declareReturn; no agrega campos ni toca el historial anterior.
+export async function actMarkDirty({ profile, body }) {
+  const ctx = await loadBags()
+  const bag = needBag(ctx, body.bagId)
+  const prev = await currentCycleRecord(bag)
+  const prevState = prev ? normState(prev.fields?.[FC.state]) : null
+  if (['Dirty', 'Inspected', 'Washing'].includes(prevState)) throw new HttpError(409, `Esta maleta ya está en "${prevState}"; solo se puede marcar sucia desde Clean, En uso o sin ciclo`)
+  const n = Math.max(1, bag.qty)
+  const units = Array.from({ length: n }, (_, i) => i + 1)
+  const received = body.received !== false
+  const at = nowISO()
+  const staffId = profile.staff_airtable_id || null
+  const fields = {
+    [FC.name]: `${bag.code || bag.name} · ${todayET()} (ajuste manual)`,
+    [FC.bag]: [bag.id],
+    [FC.state]: 'Dirty',
+    [FC.dirtyAt]: at,
+    [FC.condition]: 'Normal',
+    [FC.sendAll]: true,
+    [FC.special]: false,
+    [FC.bagsOut]: n,
+    [FC.bagsBack]: n,
+    [FC.unitsSeen]: unitsText({ back: units.map(u => ({ unit: u, status: 'dirty', place: null })), rcv: received ? units : [] }),
+    [FC.log]: JSON.stringify([{ at, by: staffName(ctx, profile), stage: 'Ajuste manual', note: `Marcada sucia a mano${received ? ' (ya en lavandería)' : ' (en tránsito)'}; estado anterior: ${prevState || bag.state || 'sin estado'}`, photos: [] }]),
+  }
+  if (staffId) fields[FC.declaredBy] = [staffId]
+  const created = await createRecord(T.cycles, fields)
+  await updateRecord(T.bags, bag.id, { [FB.state]: 'Dirty', [FB.lastCycle]: [created.id] })
+  return { ok: true, cycle: normalizeCycle(created, ctx.maps.staffMap) }
+}
+
 export async function actMarkInUse({ profile, body }) {
   const ctx = await loadBags()
   const bag = needBag(ctx, body.bagId)
